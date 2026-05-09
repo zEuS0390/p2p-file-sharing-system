@@ -1,5 +1,5 @@
-#include <core/network/Client.hpp>
-#include <core/network/Server.hpp>
+#include "network/Client.hpp"
+#include "network/Server.hpp"
 #include <unistd.h>
 #include <csignal>
 #include <thread>

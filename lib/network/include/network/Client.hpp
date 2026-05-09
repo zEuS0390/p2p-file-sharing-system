@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "core/types/Endpoint.hpp"
+#include "types/Endpoint.hpp"
 
 class Client
 {

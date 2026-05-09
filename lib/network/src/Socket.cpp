@@ -1,7 +1,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#include "core/network/Socket.hpp"
+#include "network/Socket.hpp"
 
 // Constructor
 Socket::Socket():

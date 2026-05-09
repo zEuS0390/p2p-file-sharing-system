@@ -7,13 +7,12 @@
 #include <vector>
 #include <mutex>
 
-#include "core/network/Socket.hpp"
-#include "core/types/Endpoint.hpp"
+#include "network/Socket.hpp"
+#include "types/Endpoint.hpp"
 
 class Server: public Socket
 {
 private:
-  // std::vector<Endpoint> clients;
   std::unordered_map<int, Endpoint> clients;
   std::vector<pollfd> client_pollfds;
   bool is_listening;

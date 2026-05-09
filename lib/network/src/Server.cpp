@@ -11,8 +11,8 @@
 #include <cerrno>
 #include <mutex>
 
-#include "core/network/Server.hpp"
-#include "core/types/Endpoint.hpp"
+#include "network/Server.hpp"
+#include "types/Endpoint.hpp"
 
 // Constructor
 Server::Server():
@@ -136,7 +136,11 @@ void Server::startMonitoring()
           char buffer[256] {};
           ssize_t recv_status = recv(client_pollfd.fd, buffer, sizeof(buffer)-1, 0);
 
-          if (recv_status == 0)
+          if (recv_status > 0)
+          {
+            std::cout << buffer << std::endl;
+          }
+          else if (recv_status == 0)
           {
             std::cout << "Client disconnected cleanly." << std::endl;
             std::cout.flush();

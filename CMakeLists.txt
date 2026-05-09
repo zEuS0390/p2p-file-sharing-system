@@ -16,6 +16,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 
 set(BUILD_SHARED_LIBS ON)
 
-add_subdirectory("${CMAKE_SOURCE_DIR}/lib/core")
+add_subdirectory("${CMAKE_SOURCE_DIR}/lib/network")
 add_subdirectory("${CMAKE_SOURCE_DIR}/tests")
 

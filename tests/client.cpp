@@ -1,4 +1,4 @@
-#include <core/network/Client.hpp>
+#include "network/Client.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <thread>

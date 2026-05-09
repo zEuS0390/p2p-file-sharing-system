@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 
-add_executable(server "${CMAKE_SOURCE_DIR}/tests/server.cpp")
-add_executable(client "${CMAKE_SOURCE_DIR}/tests/client.cpp")
+add_executable(server "${CMAKE_CURRENT_SOURCE_DIR}/server.cpp")
+add_executable(client "${CMAKE_CURRENT_SOURCE_DIR}/client.cpp")
 
 set_target_properties(server PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")

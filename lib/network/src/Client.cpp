@@ -4,8 +4,8 @@
 #include <unistd.h>
 #include <vector>
 
-#include "core/network/Client.hpp"
-#include "core/types/Endpoint.hpp"
+#include "network/Client.hpp"
+#include "types/Endpoint.hpp"
 
 // Constructor
 Client::Client()
@@ -15,6 +15,7 @@ Client::Client()
 // Destructor
 Client::~Client()
 {
+  // Close the sockets of all connected clients
   for (Endpoint& server: servers)
   {
     shutdown(server.socket_descriptor, SHUT_RDWR);
@@ -26,13 +27,22 @@ Client::~Client()
 // Connect to the server with the given hostname and port
 int Client::connectToServer(const std::string& hostname, int port)
 {
+  // Declare a variable that points to an address information structure
+  // that will be populated when the getaddrinfo function is invoked.
   struct addrinfo* server_address {};
+
+  // Declare an address information structure that will be used
+  // to filter and define the type of network address that the
+  // getadrinfo function returns.
   struct addrinfo hints {};
 
   hints.ai_family = AF_INET;
   hints.ai_protocol = IPPROTO_TCP;
   hints.ai_socktype = SOCK_STREAM;
 
+  // Translate a human-readable hostname and port into a
+  // a format that a computer can use to established a
+  // network connection.
   int get_addrinfo_status {
     getaddrinfo(hostname.c_str(),
     std::to_string(port).c_str(),
@@ -46,10 +56,15 @@ int Client::connectToServer(const std::string& hostname, int port)
     return -1;
   }
 
+  // Create an endpoint for communication. It acts like
+  // opening a file so the operating system can prepare
+  // a channel for sending and receving data accross a
+  // network.
   int server_socket_descriptor {
     socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
   };
 
+  // Establish a connection to be able to communicate
   int connect_status {
     connect(
       server_socket_descriptor,
