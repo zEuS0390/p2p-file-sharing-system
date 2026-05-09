@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "types/Endpoint.hpp"
+#include "core/types/Endpoint.hpp"
 
 class Client
 {
@@ -14,6 +14,7 @@ public:
   ~Client();
   int connectToServer(const std::string&, int);
   int disconnectToServer(int);
+  ssize_t sendMessage(int, const std::string&);
 };
 
 #endif

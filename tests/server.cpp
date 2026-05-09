@@ -1,9 +1,7 @@
-#include "network/Client.hpp"
-#include "network/Server.hpp"
+#include "core/network/Server.hpp"
 #include <unistd.h>
 #include <csignal>
 #include <thread>
-#include <iostream>
 
 volatile sig_atomic_t stop {0};
 
@@ -29,7 +27,6 @@ int main()
 
   while (!stop)
   {
-    std::cout << server.getNumberOfClients() << std::endl;
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 

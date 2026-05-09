@@ -7,8 +7,8 @@
 #include <vector>
 #include <mutex>
 
-#include "network/Socket.hpp"
-#include "types/Endpoint.hpp"
+#include "core/network/Socket.hpp"
+#include "core/types/Endpoint.hpp"
 
 class Server: public Socket
 {

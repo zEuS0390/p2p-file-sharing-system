@@ -4,8 +4,8 @@
 #include <unistd.h>
 #include <vector>
 
-#include "network/Client.hpp"
-#include "types/Endpoint.hpp"
+#include "core/network/Client.hpp"
+#include "core/types/Endpoint.hpp"
 
 // Constructor
 Client::Client()
@@ -107,4 +107,10 @@ int Client::disconnectToServer(int socket_descriptor)
     }
   }
   return 0;
+}
+
+ssize_t Client::sendMessage(int socket_descriptor, const std::string& msg)
+{
+  ssize_t send_status {send(socket_descriptor, msg.c_str(), msg.size(), 0)};
+  return send_status;
 }

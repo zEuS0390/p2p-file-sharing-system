@@ -1,4 +1,4 @@
-#include "network/Client.hpp"
+#include "core/network/Client.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <thread>
@@ -19,7 +19,21 @@ int main(int argc, char* argv[])
   if (server_socket_descriptor < 0)
     return 1;
 
-  std::this_thread::sleep_for(std::chrono::seconds(10));
+  std::cout << "Press enter to continue..." << std::endl;
+  std::cin.get();
+
+  for (const char& c: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ@!#{_-?: ")
+  {
+    client.sendMessage(server_socket_descriptor, std::string(1, c));
+    std::cout << std::string(1, c);
+    std::cout.flush();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+  std::cout << std::endl;
+
+  std::cout << "Press enter to continue..." << std::endl;
+  std::cin.get();
+  client.sendMessage(server_socket_descriptor, std::string(1, '\n'));
 
   client.disconnectToServer(server_socket_descriptor);
 

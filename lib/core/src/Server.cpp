@@ -11,8 +11,9 @@
 #include <cerrno>
 #include <mutex>
 
-#include "network/Server.hpp"
-#include "types/Endpoint.hpp"
+#include "core/network/Server.hpp"
+#include "core/types/Endpoint.hpp"
+#include "core/utils.hpp"
 
 // Constructor
 Server::Server():
@@ -138,7 +139,8 @@ void Server::startMonitoring()
 
           if (recv_status > 0)
           {
-            std::cout << buffer << std::endl;
+            std::cout << buffer;
+            std::cout.flush();
           }
           else if (recv_status == 0)
           {
@@ -149,6 +151,7 @@ void Server::startMonitoring()
             {
               std::lock_guard<std::mutex> lock(mutex);
               clients.erase(client_pollfd.fd);
+              removePollFD(client_pollfds, client_pollfd.fd);
             }
           }
         }
@@ -162,6 +165,7 @@ void Server::startMonitoring()
           {
             std::lock_guard<std::mutex> lock(mutex);
             clients.erase(client_pollfd.fd);
+            removePollFD(client_pollfds, client_pollfd.fd);
           }
         }
       }
