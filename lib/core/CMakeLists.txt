@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 
 set(NETWORK_SRC_FILES
+    "src/Peer.cpp"
     "src/Client.cpp"
     "src/Server.cpp"
     "src/Socket.cpp"
