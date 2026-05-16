@@ -109,8 +109,19 @@ int Client::disconnectToServer(int socket_descriptor)
   return 0;
 }
 
-ssize_t Client::sendMessage(int socket_descriptor, const std::string& msg)
+ssize_t Client::sendAll(int socket_descriptor, const char* data, size_t length)
 {
-  ssize_t send_status {send(socket_descriptor, msg.c_str(), msg.size(), 0)};
-  return send_status;
+  size_t total {0};
+
+  while (total < length)
+  {
+    ssize_t sent {send(socket_descriptor, data + total, length - total, 0)};
+    
+    if (sent <= 0)
+      return -1;
+
+    total += sent;
+  }
+
+  return 0;
 }

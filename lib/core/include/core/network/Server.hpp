@@ -8,13 +8,14 @@
 #include <mutex>
 
 #include "core/network/Socket.hpp"
-#include "core/types/Endpoint.hpp"
+#include "core/types/ClientConnection.hpp"
 
 class Server: public Socket
 {
-private:
-  std::unordered_map<int, Endpoint> clients;
+protected:
+  std::unordered_map<int, ClientConnection> clients;
   std::vector<pollfd> client_pollfds;
+private:
   bool is_listening;
   bool is_monitoring;
 public:
@@ -25,6 +26,7 @@ public:
   void stopListening();
   void startMonitoring();
   void stopMonitoring();
+  void processMessages(ClientConnection*);
   int getNumberOfClients();
 };
 

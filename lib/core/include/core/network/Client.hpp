@@ -7,14 +7,14 @@
 
 class Client
 {
-private:
+protected:
   std::vector<Endpoint> servers;
 public:
   Client();
   ~Client();
   int connectToServer(const std::string&, int);
   int disconnectToServer(int);
-  ssize_t sendMessage(int, const std::string&);
+  ssize_t sendAll(int, const char*, size_t);
 };
 
 #endif

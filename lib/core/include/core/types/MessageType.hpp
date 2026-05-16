@@ -1,0 +1,15 @@
+#ifndef NETWORK_MESSAGE_TYPE_HPP
+#define NETWORK_MESSAGE_TYPE_HPP
+
+enum MessageType
+{
+  FILE_REQUEST,
+  FILE_INFO,
+  FILE_CHUNK,
+  FILE_ACK,
+  FILE_END,
+  MESSAGE
+};
+
+#endif
+

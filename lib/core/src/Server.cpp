@@ -12,7 +12,9 @@
 #include <mutex>
 
 #include "core/network/Server.hpp"
+#include "core/types/ClientConnection.hpp"
 #include "core/types/Endpoint.hpp"
+#include "core/types/MessageHeaders.hpp"
 #include "core/utils.hpp"
 
 // Constructor
@@ -40,11 +42,12 @@ Server::Server():
   };
 
   if (bind_result < 0)
-    throw std::runtime_error(
-      "There was an error binding the address and port on the socket."
-    );
+    throw std::runtime_error(strerror(errno));
 
-  listen(descriptor, 10);
+  int listen_status {listen(descriptor, 10)};
+
+  if (listen_status < 0)
+    throw std::runtime_error(strerror(errno));
 }
 
 // Destructor
@@ -52,15 +55,59 @@ Server::~Server()
 {
   {
     std::lock_guard<std::mutex> lock(mutex);
-    for (std::pair<const int, Endpoint>& client: clients)
+    for (std::pair<const int, ClientConnection>& client: clients)
     {
-      shutdown(client.second.socket_descriptor, SHUT_RDWR);
-      close(client.second.socket_descriptor);
+      shutdown(client.second.endpoint.socket_descriptor, SHUT_RDWR);
+      close(client.second.endpoint.socket_descriptor);
     }
     clients.clear();
   }
   shutdown(descriptor, SHUT_RDWR);
   close(descriptor);
+}
+
+void Server::processMessages(ClientConnection* client_connection)
+{
+  while (true)
+  {
+    if (client_connection->reading_header)
+    {
+      if (client_connection->recv_buffer.size() <
+          sizeof(MessageHeader))
+        return;
+
+      memcpy(
+        &client_connection->current_header,
+        client_connection->recv_buffer.data(),
+        sizeof(MessageHeader)
+      );
+
+      client_connection->recv_buffer.erase(
+        client_connection->recv_buffer.begin(),
+        client_connection->recv_buffer.begin() +
+        sizeof(MessageHeader)
+      );
+
+      client_connection->reading_header = false;
+    }
+
+    if (!client_connection->reading_header)
+    {
+      if (client_connection->recv_buffer.size() <
+          client_connection->current_header.payload_size)
+        return;
+
+      std::cout << client_connection->recv_buffer.data() << std::endl;
+
+      client_connection->recv_buffer.erase(
+          client_connection->recv_buffer.begin(),
+          client_connection->recv_buffer.begin() +
+          client_connection->current_header.payload_size
+      );
+
+      client_connection->reading_header = true;
+    }
+  }
 }
 
 // Listen for incoming client connections
@@ -87,7 +134,7 @@ void Server::startListening()
       client_pollfd.events = POLLIN;
       client_pollfd.revents = 0;
       client_pollfds.push_back(client_pollfd);
-      clients[client_socket_descriptor] = client_info;
+      clients[client_socket_descriptor].endpoint = client_info;
     }
     std::cout << "Client connected successfully." << std::endl;
     std::cout.flush();
@@ -115,32 +162,43 @@ void Server::startMonitoring()
   is_monitoring = true;
   while (is_monitoring)
   {
-    std::vector<pollfd> snapshot;
-    snapshot.reserve(client_pollfds.size());
+    std::vector<pollfd> client_pollfds_snapshot;
+    client_pollfds_snapshot.reserve(client_pollfds.size());
 
     {
       std::lock_guard<std::mutex> lock(mutex);
       for (pollfd& client_pollfd: client_pollfds)
-        snapshot.push_back(client_pollfd);
+        client_pollfds_snapshot.push_back(client_pollfd);
     }
 
-    int ready = poll(snapshot.data(), snapshot.size(), 5000);
+    int ready = poll(client_pollfds_snapshot.data(), client_pollfds_snapshot.size(), 5000);
 
     if (ready > 0)
     {
-      for (size_t i = 0; i < snapshot.size(); ++i)
+      for (size_t i = 0; i < client_pollfds_snapshot.size(); ++i)
       {
-        pollfd& client_pollfd {snapshot.at(i)};
+        pollfd& client_pollfd {client_pollfds_snapshot.at(i)};
 
         if (client_pollfd.revents & POLLIN)
         {
-          char buffer[256] {};
+          ClientConnection* client_connection {};
+          {
+            std::lock_guard<std::mutex> lock(mutex);
+             client_connection = &clients.at(client_pollfd.fd);
+          }
+
+          char buffer[4096] {};
           ssize_t recv_status = recv(client_pollfd.fd, buffer, sizeof(buffer)-1, 0);
 
           if (recv_status > 0)
           {
-            std::cout << buffer;
-            std::cout.flush();
+            std::lock_guard<std::mutex> lock(mutex);
+            client_connection->recv_buffer.insert(
+                client_connection->recv_buffer.end(),
+                buffer,
+                buffer + recv_status
+            );
+            processMessages(client_connection);
           }
           else if (recv_status == 0)
           {
@@ -148,11 +206,9 @@ void Server::startMonitoring()
             std::cout.flush();
             shutdown(client_pollfd.fd, SHUT_RDWR);
             close(client_pollfd.fd);
-            {
-              std::lock_guard<std::mutex> lock(mutex);
-              clients.erase(client_pollfd.fd);
-              removePollFD(client_pollfds, client_pollfd.fd);
-            }
+            std::lock_guard<std::mutex> lock(mutex);
+            clients.erase(client_pollfd.fd);
+            removePollFD(client_pollfds, client_pollfd.fd);
           }
         }
 
