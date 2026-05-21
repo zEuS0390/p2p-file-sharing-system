@@ -67,6 +67,23 @@ Server::~Server()
   close(descriptor);
 }
 
+void Server::dispatchMessage(
+  ClientConnection* client_connection,
+  MessageHeader& message_header,
+  const char* data
+)
+{
+  switch(message_header.type)
+  {
+    case MessageType::MESSAGE:
+      std::cout << data;
+      std::cout.flush();
+      break;
+    default:
+      break;
+  }
+}
+
 // Parse received message for the connected client
 void Server::parseMessage(ClientConnection* client_connection)
 {
@@ -102,8 +119,11 @@ void Server::parseMessage(ClientConnection* client_connection)
           client_connection->current_header.payload_size)
         return;
 
-      std::cout << client_connection->recv_buffer.data();
-      std::cout.flush();
+      dispatchMessage(
+        client_connection,
+        client_connection->current_header,
+        client_connection->recv_buffer.data()
+      );
 
       client_connection->recv_buffer.erase(
           client_connection->recv_buffer.begin(),

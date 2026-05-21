@@ -27,6 +27,7 @@ public:
   void stopListening();
   void startMonitoring();
   void stopMonitoring();
+  void dispatchMessage(ClientConnection*, MessageHeader&, const char*);
   void parseMessage(ClientConnection*);
   int getNumberOfClients();
 };
