@@ -68,7 +68,7 @@ Server::~Server()
 }
 
 // Parse received message for the connected client
-void Server::processMessage(ClientConnection* client_connection)
+void Server::parseMessage(ClientConnection* client_connection)
 {
   while (true)
   {
@@ -204,7 +204,7 @@ void Server::startMonitoring()
                 buffer,
                 buffer + recv_status
             );
-            processMessage(client_connection);
+            parseMessage(client_connection);
           }
           else if (recv_status == 0)
           {

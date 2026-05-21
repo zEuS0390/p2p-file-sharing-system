@@ -19,15 +19,15 @@ private:
   bool is_listening;
   bool is_monitoring;
   unsigned int listen_limit;
-public:
   std::mutex mutex;
+public:
   Server();
   ~Server();
   void startListening();
   void stopListening();
   void startMonitoring();
   void stopMonitoring();
-  void processMessage(ClientConnection*);
+  void parseMessage(ClientConnection*);
   int getNumberOfClients();
 };
 
