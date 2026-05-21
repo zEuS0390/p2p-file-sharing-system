@@ -2,7 +2,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <vector>
+#include <unordered_map>
 
 #include "core/network/Client.hpp"
 #include "core/types/Endpoint.hpp"
@@ -16,10 +16,10 @@ Client::Client()
 Client::~Client()
 {
   // Close the sockets of all connected clients
-  for (Endpoint& server: servers)
+  for (std::pair<const int, Endpoint>& server: servers)
   {
-    shutdown(server.socket_descriptor, SHUT_RDWR);
-    close(server.socket_descriptor);
+    shutdown(server.second.socket_descriptor, SHUT_RDWR);
+    close(server.second.socket_descriptor);
   }
   servers.clear();
 }
@@ -78,10 +78,14 @@ int Client::connectToServer(const std::string& hostname, int port)
     return -2;
   }
 
+  // Create a socket address information of the server
   struct sockaddr_in* socket_address = (struct sockaddr_in*)server_address->ai_addr;
   unsigned int socket_address_length = server_address->ai_addrlen;
   Endpoint endpoint {server_socket_descriptor, *socket_address, socket_address_length};
-  servers.push_back(endpoint);
+
+  // Add the socket address information in the server list
+  // servers.push_back(endpoint);
+  servers[server_socket_descriptor] = endpoint;
 
   freeaddrinfo(server_address);
 
@@ -91,26 +95,24 @@ int Client::connectToServer(const std::string& hostname, int port)
 // Disconnect to the server
 int Client::disconnectToServer(int socket_descriptor)
 {
-  for (std::vector<Endpoint>::iterator it = servers.begin();
-       it != servers.end();
-      )
+  std::unordered_map<int, Endpoint>::iterator it {servers.find(socket_descriptor)};
+  if (it != servers.end())
   {
-    if (it->socket_descriptor == socket_descriptor)
-    {
-      shutdown(it->socket_descriptor, SHUT_RDWR);
-      close(it->socket_descriptor);
-      it = servers.erase(it);
-    }
-    else
-    {
-      ++it;
-    }
+    shutdown(it->second.socket_descriptor, SHUT_RDWR);
+    close(it->second.socket_descriptor);
+    it = servers.erase(it);
   }
   return 0;
 }
 
 ssize_t Client::sendAll(int socket_descriptor, const char* data, size_t length)
 {
+  std::unordered_map<int, Endpoint>::iterator it {servers.find(socket_descriptor)};
+  if (it == servers.end())
+  {
+    return -1;
+  }
+
   size_t total {0};
 
   while (total < length)

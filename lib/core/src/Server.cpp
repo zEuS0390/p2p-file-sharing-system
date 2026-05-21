@@ -20,7 +20,8 @@
 // Constructor
 Server::Server():
   is_listening{false},
-  is_monitoring{false}
+  is_monitoring{false},
+  listen_limit(SOMAXCONN)
 {
   // Enable to reuse the same address without the system restruction (ONLY FOR DEV and DEBUGGING) 
   int opt = 1;
@@ -44,7 +45,7 @@ Server::Server():
   if (bind_result < 0)
     throw std::runtime_error(strerror(errno));
 
-  int listen_status {listen(descriptor, 10)};
+  int listen_status {listen(descriptor, listen_limit)};
 
   if (listen_status < 0)
     throw std::runtime_error(strerror(errno));
@@ -66,16 +67,19 @@ Server::~Server()
   close(descriptor);
 }
 
-void Server::processMessages(ClientConnection* client_connection)
+// Parse received message for the connected client
+void Server::processMessage(ClientConnection* client_connection)
 {
   while (true)
   {
+    // Read the header
     if (client_connection->reading_header)
     {
       if (client_connection->recv_buffer.size() <
           sizeof(MessageHeader))
         return;
 
+      // Copy raw bytes from receive buffer into MessageHeader struct
       memcpy(
         &client_connection->current_header,
         client_connection->recv_buffer.data(),
@@ -91,13 +95,15 @@ void Server::processMessages(ClientConnection* client_connection)
       client_connection->reading_header = false;
     }
 
+    // Read the payload
     if (!client_connection->reading_header)
     {
       if (client_connection->recv_buffer.size() <
           client_connection->current_header.payload_size)
         return;
 
-      std::cout << client_connection->recv_buffer.data() << std::endl;
+      std::cout << client_connection->recv_buffer.data();
+      std::cout.flush();
 
       client_connection->recv_buffer.erase(
           client_connection->recv_buffer.begin(),
@@ -198,7 +204,7 @@ void Server::startMonitoring()
                 buffer,
                 buffer + recv_status
             );
-            processMessages(client_connection);
+            processMessage(client_connection);
           }
           else if (recv_status == 0)
           {

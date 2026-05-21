@@ -1,14 +1,15 @@
 #ifndef CORE_NETWORK_CLIENT_HPP
 #define CORE_NETWORK_CLIENT_HPP
 
+#include <unordered_map>
 #include <string>
-#include <vector>
+
 #include "core/types/Endpoint.hpp"
 
 class Client
 {
 protected:
-  std::vector<Endpoint> servers;
+  std::unordered_map<int, Endpoint> servers;
 public:
   Client();
   ~Client();

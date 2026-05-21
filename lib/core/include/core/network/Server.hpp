@@ -18,6 +18,7 @@ protected:
 private:
   bool is_listening;
   bool is_monitoring;
+  unsigned int listen_limit;
 public:
   std::mutex mutex;
   Server();
@@ -26,7 +27,7 @@ public:
   void stopListening();
   void startMonitoring();
   void stopMonitoring();
-  void processMessages(ClientConnection*);
+  void processMessage(ClientConnection*);
   int getNumberOfClients();
 };
 
