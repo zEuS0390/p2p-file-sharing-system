@@ -79,13 +79,15 @@ void Server::dispatchMessage(
       std::cout << data;
       std::cout.flush();
       break;
+    case MessageType::FILE_INFO:
+      break;
     default:
       break;
   }
 }
 
 // Parse received message for the connected client
-void Server::parseMessage(ClientConnection* client_connection)
+void Server::parseIncomingMessage(ClientConnection* client_connection)
 {
   while (true)
   {
@@ -183,7 +185,7 @@ int Server::getNumberOfClients()
 }
 
 // Monitor the statuses of connected clients
-void Server::startMonitoring()
+void Server::runEventLoop()
 {
   is_monitoring = true;
   while (is_monitoring)
@@ -224,7 +226,7 @@ void Server::startMonitoring()
                 buffer,
                 buffer + recv_status
             );
-            parseMessage(client_connection);
+            parseIncomingMessage(client_connection);
           }
           else if (recv_status == 0)
           {
@@ -256,7 +258,7 @@ void Server::startMonitoring()
 }
 
 // Stop monitoring the statuses of connected clients
-void Server::stopMonitoring()
+void Server::stopEventLoop()
 {
   is_monitoring = false;
 }

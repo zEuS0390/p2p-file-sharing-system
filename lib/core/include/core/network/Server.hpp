@@ -25,10 +25,10 @@ public:
   ~Server();
   void startListening();
   void stopListening();
-  void startMonitoring();
-  void stopMonitoring();
+  void runEventLoop();
+  void stopEventLoop();
   void dispatchMessage(ClientConnection*, MessageHeader&, const char*);
-  void parseMessage(ClientConnection*);
+  void parseIncomingMessage(ClientConnection*);
   int getNumberOfClients();
 };
 

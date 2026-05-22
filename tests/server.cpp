@@ -23,7 +23,7 @@ int main()
 
   Server server;
   std::thread listeningThread {&Server::startListening, std::ref(server)};
-  std::thread monitoringThread (&Server::startMonitoring, std::ref(server));
+  std::thread monitoringThread (&Server::runEventLoop, std::ref(server));
 
   while (!stop)
   {
@@ -31,7 +31,7 @@ int main()
   }
 
   server.stopListening();
-  server.stopMonitoring();
+  server.stopEventLoop();
 
   listeningThread.join();
   monitoringThread.join();

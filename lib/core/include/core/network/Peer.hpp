@@ -9,8 +9,8 @@
 class Peer: public Server, public Client
 {
 private:
-  std::thread listening_thread;
-  std::thread monitoring_thread;
+  std::thread server_listening_thread;
+  std::thread server_event_loop_thread;
 public:
   Peer();
   ~Peer();

@@ -7,21 +7,21 @@ Peer::Peer()
 Peer::~Peer()
 {
   stop();
-  if (listening_thread.joinable())
-    listening_thread.join();
-  if (monitoring_thread.joinable())
-    monitoring_thread.join();
+  if (server_listening_thread.joinable())
+    server_listening_thread.join();
+  if (server_event_loop_thread.joinable())
+    server_event_loop_thread.join();
 }
 
 void Peer::start()
 {
-  listening_thread = std::thread{&Peer::startListening, this};
-  monitoring_thread = std::thread{&Peer::startMonitoring, this};
+  server_listening_thread = std::thread{&Peer::Server::startListening, this};
+  server_event_loop_thread = std::thread{&Peer::Server::runEventLoop, this};
 }
 
 void Peer::stop()
 {
-  stopListening();
-  stopMonitoring();
+  Server::stopListening();
+  Server::stopEventLoop();
 }
 
