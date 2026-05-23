@@ -12,7 +12,7 @@
 #include <mutex>
 
 #include "core/network/Server.hpp"
-#include "core/types/ClientConnection.hpp"
+#include "core/types/Connection.hpp"
 #include "core/types/Endpoint.hpp"
 #include "core/types/MessageHeaders.hpp"
 #include "core/utils.hpp"
@@ -20,7 +20,7 @@
 // Constructor
 Server::Server():
   is_listening{false},
-  is_monitoring{false},
+  is_event_running{false},
   listen_limit(SOMAXCONN)
 {
   // Enable to reuse the same address without the system restruction (ONLY FOR DEV and DEBUGGING) 
@@ -56,7 +56,7 @@ Server::~Server()
 {
   {
     std::lock_guard<std::mutex> lock(mutex);
-    for (std::pair<const int, ClientConnection>& client: clients)
+    for (std::pair<const int, Connection>& client: clients)
     {
       shutdown(client.second.endpoint.socket_descriptor, SHUT_RDWR);
       close(client.second.endpoint.socket_descriptor);
@@ -68,7 +68,7 @@ Server::~Server()
 }
 
 void Server::dispatchMessage(
-  ClientConnection* client_connection,
+  Connection* client_connection,
   MessageHeader& message_header,
   const char* data
 )
@@ -87,7 +87,7 @@ void Server::dispatchMessage(
 }
 
 // Parse received message for the connected client
-void Server::parseIncomingMessage(ClientConnection* client_connection)
+void Server::parseIncomingMessage(Connection* client_connection)
 {
   while (true)
   {
@@ -187,8 +187,8 @@ int Server::getNumberOfClients()
 // Monitor the statuses of connected clients
 void Server::runEventLoop()
 {
-  is_monitoring = true;
-  while (is_monitoring)
+  is_event_running = true;
+  while (is_event_running)
   {
     std::vector<pollfd> client_pollfds_snapshot;
     client_pollfds_snapshot.reserve(client_pollfds.size());
@@ -209,7 +209,7 @@ void Server::runEventLoop()
 
         if (client_pollfd.revents & POLLIN)
         {
-          ClientConnection* client_connection {};
+          Connection* client_connection {};
           {
             std::lock_guard<std::mutex> lock(mutex);
              client_connection = &clients.at(client_pollfd.fd);
@@ -260,5 +260,5 @@ void Server::runEventLoop()
 // Stop monitoring the statuses of connected clients
 void Server::stopEventLoop()
 {
-  is_monitoring = false;
+  is_event_running = false;
 }

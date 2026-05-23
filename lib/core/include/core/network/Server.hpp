@@ -8,16 +8,16 @@
 #include <mutex>
 
 #include "core/network/Socket.hpp"
-#include "core/types/ClientConnection.hpp"
+#include "core/types/Connection.hpp"
 
 class Server: public Socket
 {
 protected:
-  std::unordered_map<int, ClientConnection> clients;
+  std::unordered_map<int, Connection> clients;
   std::vector<pollfd> client_pollfds;
 private:
   bool is_listening;
-  bool is_monitoring;
+  bool is_event_running;
   unsigned int listen_limit;
   std::mutex mutex;
 public:
@@ -27,8 +27,8 @@ public:
   void stopListening();
   void runEventLoop();
   void stopEventLoop();
-  void dispatchMessage(ClientConnection*, MessageHeader&, const char*);
-  void parseIncomingMessage(ClientConnection*);
+  void dispatchMessage(Connection*, MessageHeader&, const char*);
+  void parseIncomingMessage(Connection*);
   int getNumberOfClients();
 };
 
