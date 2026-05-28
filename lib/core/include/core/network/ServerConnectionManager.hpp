@@ -1,0 +1,20 @@
+#ifndef CORE_NETWORK_SERVER_CONNECTION_MANAGER_HPP
+#define CORE_NETWORK_SERVER_CONNECTION_MANAGER_HPP
+
+#include <atomic>
+
+#include "core/network/ConnectionManager.hpp"
+#include "core/network/IMessageHandler.hpp"
+
+class ServerConnectionManager: public ConnectionManager
+{
+private:
+  std::atomic<bool> is_listening;
+public:
+  ServerConnectionManager(IMessageHandler&);
+  void startAcceptConnectionLoop();
+  void stopAcceptConnectionLoop();
+  void initServer(uint16_t);
+};
+
+#endif

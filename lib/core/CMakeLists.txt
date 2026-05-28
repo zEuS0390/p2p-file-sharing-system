@@ -4,8 +4,12 @@ set(NETWORK_SRC_FILES
     "src/Peer.cpp"
     "src/Client.cpp"
     "src/Server.cpp"
-    "src/Socket.cpp"
-    "src/utils.cpp")
+    "src/ConnectionManager.cpp"
+    "src/utils.cpp"
+    "src/ClientMessageHandler.cpp"
+    "src/ServerMessageHandler.cpp"
+    "src/ServerConnectionManager.cpp"
+    "src/ClientConnectionManager.cpp")
 
 add_library(core SHARED ${NETWORK_SRC_FILES})
 

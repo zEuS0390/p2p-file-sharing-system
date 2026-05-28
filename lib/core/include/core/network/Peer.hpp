@@ -1,21 +1,30 @@
 #ifndef NETWORK_PEER_HPP
 #define NETWORK_PEER_HPP
 
+#include <string>
 #include <thread>
 
 #include "core/network/Client.hpp"
+#include "core/network/IMessageHandler.hpp"
 #include "core/network/Server.hpp"
 
-class Peer: public Server, public Client
+class Peer
 {
 private:
-  std::thread server_listening_thread;
-  std::thread server_event_loop_thread;
+  Client client;
+  Server server;
+private:
+  std::thread server_thread;
+  std::thread client_thread;
+  bool is_running;
 public:
-  Peer();
+  Peer(IMessageHandler&, IMessageHandler&);
   ~Peer();
   void start();
   void stop();
+  int connect(const std::string&, int);
+  int disconnect(int);
+  ssize_t sendAll(int, const char*, size_t);
 };
 
 #endif

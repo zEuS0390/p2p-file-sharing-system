@@ -1,21 +1,25 @@
 #ifndef CORE_NETWORK_CLIENT_HPP
 #define CORE_NETWORK_CLIENT_HPP
 
-#include <unordered_map>
 #include <string>
+#include <thread>
 
-#include "core/types/Endpoint.hpp"
+#include "core/network/ClientConnectionManager.hpp"
+#include "core/network/IMessageHandler.hpp"
 
 class Client
 {
-protected:
-  std::unordered_map<int, Endpoint> servers;
+private:
+  ClientConnectionManager client_connection_manager;
+  std::thread event_thread;
 public:
-  Client();
+  Client(IMessageHandler&);
   ~Client();
   int connectToServer(const std::string&, int);
   int disconnectToServer(int);
   ssize_t sendAll(int, const char*, size_t);
+  void start();
+  void stop();
 };
 
 #endif

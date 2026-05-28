@@ -1,27 +1,24 @@
+#include <memory>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <unordered_map>
+#include <iostream>
 
 #include "core/network/Client.hpp"
+#include "core/network/IMessageHandler.hpp"
+#include "core/types/Connection.hpp"
 #include "core/types/Endpoint.hpp"
 
 // Constructor
-Client::Client()
+Client::Client(IMessageHandler& message_handler):
+  client_connection_manager{message_handler}
 {
 }
 
 // Destructor
 Client::~Client()
 {
-  // Close the sockets of all connected clients
-  for (std::pair<const int, Endpoint>& server: servers)
-  {
-    shutdown(server.second.socket_descriptor, SHUT_RDWR);
-    close(server.second.socket_descriptor);
-  }
-  servers.clear();
 }
 
 // Connect to the server with the given hostname and port
@@ -81,11 +78,25 @@ int Client::connectToServer(const std::string& hostname, int port)
   // Create a socket address information of the server
   struct sockaddr_in* socket_address = (struct sockaddr_in*)server_address->ai_addr;
   unsigned int socket_address_length = server_address->ai_addrlen;
-  Endpoint endpoint {server_socket_descriptor, *socket_address, socket_address_length};
+  Endpoint endpoint;
+  endpoint.socket_descriptor = server_socket_descriptor;
+  endpoint.socket_address_information_length = socket_address_length;
+  endpoint.socket_address_information = *socket_address;
 
-  // Add the socket address information in the server list
-  // servers.push_back(endpoint);
-  servers[server_socket_descriptor] = endpoint;
+  // Add the socket address information in the connections
+  std::shared_ptr<Connection> connection = std::make_shared<Connection>();
+  connection->endpoint = endpoint;
+
+  pollfd client_pollfd;
+  client_pollfd.fd = server_socket_descriptor;
+  client_pollfd.events = POLLIN;
+  client_pollfd.revents = 0;
+
+  client_connection_manager.addConnection(
+    server_socket_descriptor,
+    connection,
+    client_pollfd
+  );
 
   freeaddrinfo(server_address);
 
@@ -95,35 +106,37 @@ int Client::connectToServer(const std::string& hostname, int port)
 // Disconnect to the server
 int Client::disconnectToServer(int socket_descriptor)
 {
-  std::unordered_map<int, Endpoint>::iterator it {servers.find(socket_descriptor)};
-  if (it != servers.end())
-  {
-    shutdown(it->second.socket_descriptor, SHUT_RDWR);
-    close(it->second.socket_descriptor);
-    it = servers.erase(it);
-  }
+  client_connection_manager.removeConnection(socket_descriptor);
   return 0;
 }
 
 ssize_t Client::sendAll(int socket_descriptor, const char* data, size_t length)
 {
-  std::unordered_map<int, Endpoint>::iterator it {servers.find(socket_descriptor)};
-  if (it == servers.end())
-  {
-    return -1;
-  }
-
   size_t total {0};
 
   while (total < length)
   {
-    ssize_t sent {send(socket_descriptor, data + total, length - total, 0)};
+    ssize_t sent {send(socket_descriptor, data + total, length - total, MSG_NOSIGNAL)};
     
     if (sent <= 0)
+    {
+      std::cerr << "Error sending the message." << std::endl;
       return -1;
+    }
 
     total += sent;
   }
 
-  return 0;
+  return total;
+}
+
+void Client::start()
+{
+  event_thread = std::thread{&ClientConnectionManager::runEventLoop, std::ref(client_connection_manager)};
+}
+
+void Client::stop()
+{
+  client_connection_manager.stopEventLoop();
+  event_thread.join();
 }
