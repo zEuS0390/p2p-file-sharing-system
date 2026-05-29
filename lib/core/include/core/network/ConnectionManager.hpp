@@ -15,13 +15,13 @@ class ConnectionManager
 {
 protected:
   int descriptor;
+  std::mutex mutex;
   std::unordered_map<int, std::shared_ptr<Connection>> connections;
   std::vector<pollfd> connection_pollfds;
 private:
   std::atomic<bool> is_event_running;
   IMessageHandler& message_handler;
 public:
-  std::mutex mutex;
   ConnectionManager(IMessageHandler&);
   ~ConnectionManager();
   void runEventLoop();
