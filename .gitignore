@@ -1,3 +1,7 @@
-.venv/
-build/
-.cache/
+*
+!lib/
+!src/
+!tests/
+!.gitignore
+!CMakeLists.txt
+!README.md
