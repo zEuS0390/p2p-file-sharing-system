@@ -1,3 +1,4 @@
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <sys/socket.h>
@@ -17,46 +18,43 @@ void ServerMessageHandler::dispatchMessage(
   {
     case MessageType::MESSAGE:
     {
-      MessageHeader send_message_header;
-      send_message_header.type = MessageType::MESSAGE;
-      send_message_header.payload_size = message_header.payload_size;
-
-      ssize_t send_status {0};
-
-      send_status = send(
-        connection->endpoint.socket_descriptor,
-        reinterpret_cast<char*>(&send_message_header),
-        sizeof(send_message_header),
-        MSG_NOSIGNAL
-      );
-
-      if (send_status <= 0)
-      {
-        std::cout << "error sending the message header." << std::endl;
-        std::cout.flush();
-        break;
-      }
-
-      send_status = send(
-        connection->endpoint.socket_descriptor,
+      queueMessage(
+        connection,
+        MessageType::MESSAGE,
         data,
-        message_header.payload_size,
-        MSG_NOSIGNAL
+        message_header.payload_size
       );
-
-      if (send_status <= 0)
-      {
-        std::cout << "error sending the message payload." << std::endl;
-        std::cout.flush();
-        break;
-      }
-
-      // std::cout << data;
-      // std::cout.flush();
-
       break;
     }
     default:
       break;
   }
+}
+
+void ServerMessageHandler::queueMessage(
+  std::shared_ptr<Connection> connection,
+  const MessageType& message_type,
+  const char* data,
+  size_t length
+)
+{
+  MessageHeader message_header;
+  message_header.type = message_type;
+  message_header.payload_size = length;
+
+  size_t old_size {connection->send_buffer.size()};
+
+  connection->send_buffer.resize(old_size + sizeof(message_header) + length);
+
+  memcpy(
+    connection->send_buffer.data() + old_size,
+    &message_header,
+    sizeof(message_header)
+  );
+
+  memcpy(
+    connection->send_buffer.data() + old_size + sizeof(message_header),
+    data,
+    length
+  );
 }

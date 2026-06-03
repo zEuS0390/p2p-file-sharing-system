@@ -10,6 +10,7 @@ class ServerMessageHandler: public IMessageHandler
 {
 public:
   virtual void dispatchMessage(std::shared_ptr<Connection>, MessageHeader&, const char*) override;
+  virtual void queueMessage(std::shared_ptr<Connection>, const MessageType&, const char* data, size_t) override;
 };
 
 #endif

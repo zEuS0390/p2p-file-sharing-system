@@ -10,6 +10,7 @@ class IMessageHandler
 {
 public:
   virtual void dispatchMessage(std::shared_ptr<Connection>, MessageHeader&, const char*) = 0;
+  virtual void queueMessage(std::shared_ptr<Connection>, const MessageType&, const char*, size_t) = 0;
   virtual ~IMessageHandler() = default;
 };
 

@@ -12,6 +12,8 @@ struct Connection
   Endpoint endpoint;
   std::vector<char> recv_buffer;
   bool reading_header {true};
+  std::vector<char> send_buffer;
+  size_t send_offset {0};
   MessageHeader current_header {};
   std::mutex mutex;
 };
