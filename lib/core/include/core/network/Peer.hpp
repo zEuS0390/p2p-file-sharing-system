@@ -1,6 +1,7 @@
 #ifndef NETWORK_PEER_HPP
 #define NETWORK_PEER_HPP
 
+#include <cstdint>
 #include <string>
 #include <thread>
 
@@ -20,7 +21,7 @@ private:
 public:
   Peer(IMessageHandler&, IMessageHandler&);
   ~Peer();
-  void start();
+  void start(uint16_t);
   void stop();
   int connect(const std::string&, int);
   int disconnect(int);

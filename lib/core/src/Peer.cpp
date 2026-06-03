@@ -22,10 +22,10 @@ Peer::~Peer()
     client_thread.join();
 }
 
-void Peer::start()
+void Peer::start(uint16_t port)
 {
   is_running = true;
-  server_thread = std::thread {&Server::start, std::ref(server)};
+  server_thread = std::thread {&Server::start, std::ref(server), port};
   client_thread = std::thread {&Client::start, std::ref(client)};
 }
 
@@ -46,7 +46,11 @@ int Peer::disconnect(int socket_descriptor)
   return client.disconnectToServer(socket_descriptor);
 }
 
-ssize_t Peer::sendAll(int socket_descriptor, const char* data, size_t length)
+ssize_t Peer::sendAll(
+  int socket_descriptor,
+  const char* data,
+  size_t length
+)
 {
   return client.sendAll(socket_descriptor, data, length);
 }
