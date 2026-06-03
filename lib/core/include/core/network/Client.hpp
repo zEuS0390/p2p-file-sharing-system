@@ -6,6 +6,7 @@
 
 #include "core/network/ClientConnectionManager.hpp"
 #include "core/network/IMessageHandler.hpp"
+#include "core/types/MessageType.hpp"
 
 class Client
 {
@@ -17,7 +18,7 @@ public:
   ~Client();
   int connectToServer(const std::string&, int);
   int disconnectToServer(int);
-  ssize_t sendAll(int, const char*, size_t);
+  ssize_t sendAll(int, const MessageType&, const char*, size_t);
   void start();
   void stop();
 };

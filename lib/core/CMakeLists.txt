@@ -5,7 +5,6 @@ set(NETWORK_SRC_FILES
     "src/Client.cpp"
     "src/Server.cpp"
     "src/ConnectionManager.cpp"
-    "src/utils.cpp"
     "src/ClientMessageHandler.cpp"
     "src/ServerMessageHandler.cpp"
     "src/ServerConnectionManager.cpp"

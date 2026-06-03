@@ -10,6 +10,7 @@
 
 void ServerMessageHandler::dispatchMessage(
  std::shared_ptr<Connection> connection,
+ std::shared_ptr<pollfd> connection_pollfd,
  MessageHeader& message_header,
  const char* data
 )
@@ -20,10 +21,37 @@ void ServerMessageHandler::dispatchMessage(
     {
       queueMessage(
         connection,
+        connection_pollfd,
         MessageType::MESSAGE,
         data,
         message_header.payload_size
       );
+      break;
+    }
+    case MessageType::FILE_INFO:
+    {
+      std::string file_name {"sample.mp4"};
+      uint64_t file_size {4096};
+
+      FileInfoHeader file_information_header;
+      file_information_header.filename_size = file_name.size();
+      file_information_header.file_size = file_size;
+
+      std::vector<char> payload;
+
+      payload.resize(sizeof(file_information_header) + file_name.size() + 1);
+
+      std::memcpy(payload.data(), &file_information_header, sizeof(file_information_header));
+      std::memcpy(payload.data() + sizeof(file_information_header), file_name.data(), file_name.size() + 1);
+
+      queueMessage(
+        connection,
+        connection_pollfd,
+        MessageType::FILE_INFO,
+        payload.data(),
+        payload.size()
+      );
+
       break;
     }
     default:
@@ -33,6 +61,7 @@ void ServerMessageHandler::dispatchMessage(
 
 void ServerMessageHandler::queueMessage(
   std::shared_ptr<Connection> connection,
+  std::shared_ptr<pollfd> connection_pollfd,
   const MessageType& message_type,
   const char* data,
   size_t length
@@ -46,15 +75,17 @@ void ServerMessageHandler::queueMessage(
 
   connection->send_buffer.resize(old_size + sizeof(message_header) + length);
 
-  memcpy(
+  std::memcpy(
     connection->send_buffer.data() + old_size,
     &message_header,
     sizeof(message_header)
   );
 
-  memcpy(
+  std::memcpy(
     connection->send_buffer.data() + old_size + sizeof(message_header),
     data,
     length
   );
+
+  connection_pollfd->events |= POLLOUT;
 }

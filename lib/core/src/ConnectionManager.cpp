@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <cerrno>
 #include <sys/poll.h>
 #include <sys/socket.h>
@@ -13,7 +12,6 @@
 #include "core/network/ConnectionManager.hpp"
 #include "core/network/IMessageHandler.hpp"
 #include "core/types/Connection.hpp"
-#include "core/utils.hpp"
 
 // Constructor
 ConnectionManager::ConnectionManager(IMessageHandler& message_handler):
@@ -38,7 +36,9 @@ ConnectionManager::~ConnectionManager()
   }
 }
 
-void ConnectionManager::parseIncomingMessage(std::shared_ptr<Connection> connection)
+void ConnectionManager::parseIncomingMessage(
+  std::shared_ptr<Connection> connection,
+  std::shared_ptr<pollfd> connection_pollfd)
 {
   while (true)
   {
@@ -50,7 +50,7 @@ void ConnectionManager::parseIncomingMessage(std::shared_ptr<Connection> connect
         return;
 
       // Copy raw bytes from receive buffer into MessageHeader struct
-      memcpy(
+      std::memcpy(
         &connection->current_header,
         connection->recv_buffer.data(),
         sizeof(MessageHeader)
@@ -74,6 +74,7 @@ void ConnectionManager::parseIncomingMessage(std::shared_ptr<Connection> connect
 
       message_handler.dispatchMessage(
         connection,
+        connection_pollfd,
         connection->current_header,
         connection->recv_buffer.data()
       );
@@ -98,8 +99,8 @@ void ConnectionManager::runEventLoop()
     {
       std::lock_guard<std::mutex> lock(mutex);
       connection_pollfds_snapshot.reserve(connection_pollfds.size());
-      for (pollfd& connection_pollfd: connection_pollfds)
-        connection_pollfds_snapshot.push_back(connection_pollfd);
+      for (auto [socket_descriptor, connection_pollfd]: connection_pollfds)
+        connection_pollfds_snapshot.push_back(*connection_pollfd);
     }
 
     int ready = poll(
@@ -130,19 +131,13 @@ void ConnectionManager::runEventLoop()
 
         {
           std::lock_guard<std::mutex> lock(mutex);
-          auto it = std::find_if(
-            connection_pollfds.begin(),
-            connection_pollfds.end(),
-            [&](pollfd& pfd){
-              return pfd.fd == connection->endpoint.socket_descriptor;
-            }
-          );
+          auto it = connection_pollfds.find(connection_pollfd.fd);
           if (it != connection_pollfds.end())
           {
             if (connection->send_offset < connection->send_buffer.size())
-              it->events |= POLLOUT;
+              it->second->events |= POLLOUT;
             else
-              it->events &= ~POLLOUT;
+              it->second->events &= ~POLLOUT;
           }
         }
 
@@ -156,7 +151,7 @@ void ConnectionManager::runEventLoop()
           shutdown(connection_socket_descriptor, SHUT_RDWR);
           close(connection_socket_descriptor);
           connections.erase(connection_pollfd.fd);
-          removePollFD(connection_pollfds, connection_socket_descriptor);
+          connection_pollfds.erase(connection_pollfd.fd);
           continue;
         }
 
@@ -172,7 +167,9 @@ void ConnectionManager::runEventLoop()
                 buffer,
                 buffer + recv_status
             );
-            parseIncomingMessage(connection);
+            auto it = connection_pollfds.find(connection_pollfd.fd);
+            if (it != connection_pollfds.end())
+              parseIncomingMessage(connection, it->second);
           }
           else if (recv_status == 0)
           {
@@ -182,7 +179,7 @@ void ConnectionManager::runEventLoop()
             shutdown(connection_socket_descriptor, SHUT_RDWR);
             close(connection_socket_descriptor);
             connections.erase(connection_pollfd.fd);
-            removePollFD(connection_pollfds, connection_socket_descriptor);
+            connection_pollfds.erase(connection_pollfd.fd);
             continue;
           }
           else
@@ -195,7 +192,7 @@ void ConnectionManager::runEventLoop()
             shutdown(connection_socket_descriptor, SHUT_RDWR);
             close(connection_socket_descriptor);
             connections.erase(connection_pollfd.fd);
-            removePollFD(connection_pollfds, connection_socket_descriptor);
+            connection_pollfds.erase(connection_pollfd.fd);
             continue;
           }
         }
@@ -216,21 +213,19 @@ void ConnectionManager::runEventLoop()
             {
               connection->send_offset += bytes_sent;
             }
+            else if (bytes_sent == 0)
+            {
+              continue;
+            }
           }
           if (connection->send_offset == connection->send_buffer.size())
           {
             connection->send_buffer.clear();
             connection->send_offset = 0;
             std::lock_guard<std::mutex> lock(mutex);
-            auto it = std::find_if(
-              connection_pollfds.begin(),
-              connection_pollfds.end(),
-              [&](pollfd& pfd){
-                return pfd.fd == connection->endpoint.socket_descriptor;
-              }
-            );
+            auto it = connection_pollfds.find(connection_pollfd.fd);
             if (it != connection_pollfds.end())
-              it->events &= ~POLLOUT;
+              it->second->events &= ~POLLOUT;
           }
         }
       }
@@ -252,7 +247,7 @@ void ConnectionManager::addConnection(
   std::lock(mutex, connection->mutex);
   std::lock_guard<std::mutex> lock1(mutex, std::adopt_lock);
   std::lock_guard<std::mutex> lock2(connection->mutex, std::adopt_lock);
-  connection_pollfds.push_back(connection_pollfd);
+  connection_pollfds[socket_desrciptor] = std::make_shared<pollfd>(connection_pollfd);
   connections[socket_desrciptor] = connection;
 }
 
@@ -269,18 +264,19 @@ void ConnectionManager::removeConnection(
     connection = it->second;
   }
   {
-    std::lock_guard<std::mutex> lock(connection->mutex);
+    std::lock(mutex, connection->mutex);
+    std::lock_guard<std::mutex> lock1(mutex, std::adopt_lock);
+    std::lock_guard<std::mutex> lock2(connection->mutex, std::adopt_lock);
     shutdown(connection->endpoint.socket_descriptor, SHUT_RDWR);
     close(connection->endpoint.socket_descriptor);
-  }
-  {
-    std::lock_guard<std::mutex> lock1(mutex);
-    connections.erase(socket_descriptor);
+    connections.erase(connection->endpoint.socket_descriptor);
+    connection_pollfds.erase(socket_descriptor);
   }
 }
 
 ssize_t ConnectionManager::sendAll(
   int socket_descriptor,
+  const MessageType& message_type,
   const char* data,
   size_t length
 )
@@ -297,22 +293,9 @@ ssize_t ConnectionManager::sendAll(
     std::lock(mutex, connection->mutex);
     std::lock_guard<std::mutex> lock1(mutex, std::adopt_lock);
     std::lock_guard<std::mutex> lock2(connection->mutex, std::adopt_lock);
-    message_handler.queueMessage(connection, MessageType::MESSAGE, data, length);
-  }
-  {
-    std::lock_guard<std::mutex> lock(mutex);
-    auto it = std::find_if(
-      connection_pollfds.begin(),
-      connection_pollfds.end(),
-      [&](pollfd& pfd){
-        return pfd.fd == socket_descriptor;
-      }
-    );
-    if (it == connection_pollfds.end())
-      return -1;
-
+    auto it = connection_pollfds.find(socket_descriptor);
     if (it != connection_pollfds.end())
-      it->events |= POLLOUT;
+      message_handler.queueMessage(connection, it->second, message_type, data, length);
   }
   return 0;
 }

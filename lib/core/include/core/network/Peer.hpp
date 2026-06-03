@@ -8,6 +8,7 @@
 #include "core/network/Client.hpp"
 #include "core/network/IMessageHandler.hpp"
 #include "core/network/Server.hpp"
+#include "core/types/MessageType.hpp"
 
 class Peer
 {
@@ -25,7 +26,7 @@ public:
   void stop();
   int connect(const std::string&, int);
   int disconnect(int);
-  ssize_t sendAll(int, const char*, size_t);
+  ssize_t sendAll(int, const MessageType&, const char*, size_t);
 };
 
 #endif

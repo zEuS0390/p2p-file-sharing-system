@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <memory>
+#include <sys/poll.h>
 
 #include "core/network/ClientMessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
@@ -9,6 +10,7 @@
 
 void ClientMessageHandler::dispatchMessage(
  std::shared_ptr<Connection> connection,
+ std::shared_ptr<pollfd> connection_pollfd,
  MessageHeader& message_header,
  const char* data
 )
@@ -21,6 +23,22 @@ void ClientMessageHandler::dispatchMessage(
       std::cout.flush();
       break;
     }
+    case MessageType::FILE_INFO:
+    {
+      FileInfoHeader file_info_header;
+
+      std::memcpy(&file_info_header, data, sizeof(FileInfoHeader));
+
+      const char* file_name {data + sizeof(FileInfoHeader)};
+
+      std::string file_name_str {
+        file_name,
+        file_info_header.filename_size
+      };
+      std::cout << "filename: " << file_name_str << std::endl;
+      std::cout << "filename size: " << file_info_header.filename_size << std::endl;
+      std::cout << "file_size: " << file_info_header.file_size << std::endl;
+    }
     default:
       break;
   }
@@ -28,6 +46,7 @@ void ClientMessageHandler::dispatchMessage(
 
 void ClientMessageHandler::queueMessage(
   std::shared_ptr<Connection> connection,
+  std::shared_ptr<pollfd> connection_pollfd,
   const MessageType& message_type,
   const char* data,
   size_t length
@@ -41,15 +60,17 @@ void ClientMessageHandler::queueMessage(
 
   connection->send_buffer.resize(old_size + sizeof(message_header) + length);
 
-  memcpy(
+  std::memcpy(
     connection->send_buffer.data() + old_size,
     &message_header,
     sizeof(message_header)
   );
 
-  memcpy(
+  std::memcpy(
     connection->send_buffer.data() + old_size + sizeof(message_header),
     data,
     length
   );
+
+  connection_pollfd->events |= POLLOUT;
 }

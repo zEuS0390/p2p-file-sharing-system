@@ -48,9 +48,10 @@ int Peer::disconnect(int socket_descriptor)
 
 ssize_t Peer::sendAll(
   int socket_descriptor,
+  const MessageType& message_type,
   const char* data,
   size_t length
 )
 {
-  return client.sendAll(socket_descriptor, data, length);
+  return client.sendAll(socket_descriptor, message_type, data, length);
 }

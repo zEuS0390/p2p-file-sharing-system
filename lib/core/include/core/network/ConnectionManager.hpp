@@ -4,12 +4,12 @@
 #include <unordered_map>
 #include <memory>
 #include <atomic>
-#include <vector>
 #include <poll.h>
 #include <mutex>
 
 #include "core/network/IMessageHandler.hpp"
 #include "core/types/Connection.hpp"
+#include "core/types/MessageType.hpp"
 
 class ConnectionManager
 {
@@ -17,7 +17,7 @@ protected:
   int descriptor;
   std::mutex mutex;
   std::unordered_map<int, std::shared_ptr<Connection>> connections;
-  std::vector<pollfd> connection_pollfds;
+  std::unordered_map<int, std::shared_ptr<pollfd>> connection_pollfds;
 private:
   std::atomic<bool> is_event_running;
   IMessageHandler& message_handler;
@@ -26,10 +26,10 @@ public:
   ~ConnectionManager();
   void runEventLoop();
   void stopEventLoop();
-  void parseIncomingMessage(std::shared_ptr<Connection>);
+  void parseIncomingMessage(std::shared_ptr<Connection>, std::shared_ptr<pollfd>);
   void addConnection(int, std::shared_ptr<Connection>, pollfd);
   void removeConnection(int);
-  ssize_t sendAll(int, const char*, size_t);
+  ssize_t sendAll(int, const MessageType&, const char*, size_t);
 };
 
 #endif

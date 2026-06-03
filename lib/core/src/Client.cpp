@@ -9,6 +9,7 @@
 #include "core/network/IMessageHandler.hpp"
 #include "core/types/Connection.hpp"
 #include "core/types/Endpoint.hpp"
+#include "core/types/MessageType.hpp"
 
 // Constructor
 Client::Client(IMessageHandler& message_handler):
@@ -110,9 +111,9 @@ int Client::disconnectToServer(int socket_descriptor)
   return 0;
 }
 
-ssize_t Client::sendAll(int socket_descriptor, const char* data, size_t length)
+ssize_t Client::sendAll(int socket_descriptor, const MessageType& message_type, const char* data, size_t length)
 {
-  return client_connection_manager.sendAll(socket_descriptor, data, length);
+  return client_connection_manager.sendAll(socket_descriptor, message_type, data, length);
 }
 
 void Client::start()
