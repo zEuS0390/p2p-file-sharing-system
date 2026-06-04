@@ -1,17 +1,18 @@
-#include <cerrno>
-#include <sys/poll.h>
+#include <unordered_map>
 #include <sys/socket.h>
+#include <sys/poll.h>
 #include <iostream>
 #include <unistd.h>
 #include <cstring>
 #include <netdb.h>
-#include <mutex>
-#include <unordered_map>
 #include <memory>
+#include <cerrno>
+#include <mutex>
 
 #include "core/network/ConnectionManager.hpp"
 #include "core/network/IMessageHandler.hpp"
 #include "core/types/Connection.hpp"
+#include "core/types/MessageHeaders.hpp"
 
 // Constructor
 ConnectionManager::ConnectionManager(IMessageHandler& message_handler):
@@ -24,16 +25,15 @@ ConnectionManager::ConnectionManager(IMessageHandler& message_handler):
 ConnectionManager::~ConnectionManager()
 {
   // Close the sockets of all connected clients
+  std::lock_guard<std::mutex> lock(mutex);
   for (std::pair<const int, std::shared_ptr<Connection>>& connection: connections)
   {
     std::lock_guard<std::mutex> lock(connection.second->mutex);
     shutdown(connection.second->endpoint.socket_descriptor, SHUT_RDWR);
     close(connection.second->endpoint.socket_descriptor);
   }
-  {
-    std::lock_guard<std::mutex> lock(mutex);
-    connections.clear();
-  }
+  connections.clear();
+  connection_pollfds.clear();
 }
 
 void ConnectionManager::parseIncomingMessage(
@@ -45,47 +45,40 @@ void ConnectionManager::parseIncomingMessage(
     // Read the header
     if (connection->reading_header)
     {
-      if (connection->recv_buffer.size() <
-          sizeof(MessageHeader))
+      if (connection->recv_buffer.size() - connection->recv_offset < sizeof(MessageHeader))
         return;
 
-      // Copy raw bytes from receive buffer into MessageHeader struct
       std::memcpy(
         &connection->current_header,
-        connection->recv_buffer.data(),
+        connection->recv_buffer.data() + connection->recv_offset,
         sizeof(MessageHeader)
       );
 
-      connection->recv_buffer.erase(
-        connection->recv_buffer.begin(),
-        connection->recv_buffer.begin() +
-        sizeof(MessageHeader)
-      );
-
+      connection->recv_offset += sizeof(MessageHeader);
       connection->reading_header = false;
     }
 
     // Read the payload
     if (!connection->reading_header)
     {
-      if (connection->recv_buffer.size() <
-          connection->current_header.payload_size)
+      if (connection->recv_buffer.size() - connection->recv_offset < connection->current_header.payload_size)
         return;
 
       message_handler.dispatchMessage(
         connection,
         connection_pollfd,
         connection->current_header,
-        connection->recv_buffer.data()
+        connection->recv_buffer.data() + connection->recv_offset
       );
 
-      connection->recv_buffer.erase(
-          connection->recv_buffer.begin(),
-          connection->recv_buffer.begin() +
-          connection->current_header.payload_size
-      );
-
+      connection->recv_offset += connection->current_header.payload_size;
       connection->reading_header = true;
+    }
+
+    if (connection->recv_offset == connection->recv_buffer.size())
+    {
+      connection->recv_buffer.clear();
+      connection->recv_offset = 0;
     }
   }
 }
@@ -145,13 +138,7 @@ void ConnectionManager::runEventLoop()
         {
           std::cout << "socket error or hangup." << std::endl;
           std::cout.flush();
-          std::lock(mutex, connection->mutex);
-          std::lock_guard<std::mutex> lock1(mutex, std::adopt_lock);
-          std::lock_guard<std::mutex> lock(connection->mutex, std::adopt_lock);
-          shutdown(connection_socket_descriptor, SHUT_RDWR);
-          close(connection_socket_descriptor);
-          connections.erase(connection_pollfd.fd);
-          connection_pollfds.erase(connection_pollfd.fd);
+          removeConnection(connection_socket_descriptor);
           continue;
         }
 
@@ -175,11 +162,7 @@ void ConnectionManager::runEventLoop()
           {
             std::cout << "disconnected cleanly." << std::endl;
             std::cout.flush();
-            std::lock_guard<std::mutex> lock1(mutex);
-            shutdown(connection_socket_descriptor, SHUT_RDWR);
-            close(connection_socket_descriptor);
-            connections.erase(connection_pollfd.fd);
-            connection_pollfds.erase(connection_pollfd.fd);
+            removeConnection(connection_socket_descriptor);
             continue;
           }
           else
@@ -188,11 +171,7 @@ void ConnectionManager::runEventLoop()
               continue;
             if (errno == EINTR)
               continue;
-            std::lock_guard<std::mutex> lock(mutex);
-            shutdown(connection_socket_descriptor, SHUT_RDWR);
-            close(connection_socket_descriptor);
-            connections.erase(connection_pollfd.fd);
-            connection_pollfds.erase(connection_pollfd.fd);
+            removeConnection(connection_socket_descriptor);
             continue;
           }
         }
@@ -210,13 +189,9 @@ void ConnectionManager::runEventLoop()
               0
             );
             if (bytes_sent > 0)
-            {
               connection->send_offset += bytes_sent;
-            }
             else if (bytes_sent == 0)
-            {
               continue;
-            }
           }
           if (connection->send_offset == connection->send_buffer.size())
           {
