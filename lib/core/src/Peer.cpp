@@ -38,20 +38,20 @@ void Peer::stop()
 
 int Peer::connect(const std::string& hostname, int port)
 {
-  return client.connectToServer(hostname, port);
+  return client.connect(hostname, port);
 }
 
 int Peer::disconnect(int socket_descriptor)
 {
-  return client.disconnectToServer(socket_descriptor);
+  return client.disconnect(socket_descriptor);
 }
 
-ssize_t Peer::sendAll(
+ssize_t Peer::send(
   int socket_descriptor,
   const MessageType& message_type,
   const char* data,
   size_t length
 )
 {
-  return client.sendAll(socket_descriptor, message_type, data, length);
+  return client.send(socket_descriptor, message_type, data, length);
 }

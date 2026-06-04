@@ -23,7 +23,7 @@ Client::~Client()
 }
 
 // Connect to the server with the given hostname and port
-int Client::connectToServer(const std::string& hostname, int port)
+int Client::connect(const std::string& hostname, int port)
 {
   // Declare a variable that points to an address information structure
   // that will be populated when the getaddrinfo function is invoked.
@@ -64,7 +64,7 @@ int Client::connectToServer(const std::string& hostname, int port)
 
   // Establish a connection to be able to communicate
   int connect_status {
-    connect(
+    ::connect(
       server_socket_descriptor,
       server_address->ai_addr,
       server_address->ai_addrlen)
@@ -105,15 +105,15 @@ int Client::connectToServer(const std::string& hostname, int port)
 }
 
 // Disconnect to the server
-int Client::disconnectToServer(int socket_descriptor)
+int Client::disconnect(int socket_descriptor)
 {
   client_connection_manager.removeConnection(socket_descriptor);
   return 0;
 }
 
-ssize_t Client::sendAll(int socket_descriptor, const MessageType& message_type, const char* data, size_t length)
+ssize_t Client::send(int socket_descriptor, const MessageType& message_type, const char* data, size_t length)
 {
-  return client_connection_manager.sendAll(socket_descriptor, message_type, data, length);
+  return client_connection_manager.send(socket_descriptor, message_type, data, length);
 }
 
 void Client::start()

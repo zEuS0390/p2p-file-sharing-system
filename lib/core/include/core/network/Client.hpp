@@ -16,9 +16,9 @@ private:
 public:
   Client(IMessageHandler&);
   ~Client();
-  int connectToServer(const std::string&, int);
-  int disconnectToServer(int);
-  ssize_t sendAll(int, const MessageType&, const char*, size_t);
+  int connect(const std::string&, int);
+  int disconnect(int);
+  ssize_t send(int, const MessageType&, const char*, size_t);
   void start();
   void stop();
 };

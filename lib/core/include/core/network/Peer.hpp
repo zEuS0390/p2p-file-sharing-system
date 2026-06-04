@@ -26,7 +26,7 @@ public:
   void stop();
   int connect(const std::string&, int);
   int disconnect(int);
-  ssize_t sendAll(int, const MessageType&, const char*, size_t);
+  ssize_t send(int, const MessageType&, const char*, size_t);
 };
 
 #endif

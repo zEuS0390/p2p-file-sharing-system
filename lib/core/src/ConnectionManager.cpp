@@ -182,7 +182,7 @@ void ConnectionManager::runEventLoop()
           size_t remaining {connection->send_buffer.size() - connection->send_offset};
           if (remaining > 0)
           {
-            ssize_t bytes_sent = send(
+            ssize_t bytes_sent = ::send(
               connection->endpoint.socket_descriptor,
               connection->send_buffer.data() + connection->send_offset,
               remaining,
@@ -249,7 +249,7 @@ void ConnectionManager::removeConnection(
   }
 }
 
-ssize_t ConnectionManager::sendAll(
+ssize_t ConnectionManager::send(
   int socket_descriptor,
   const MessageType& message_type,
   const char* data,

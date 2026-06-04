@@ -29,7 +29,7 @@ public:
   void parseIncomingMessage(std::shared_ptr<Connection>, std::shared_ptr<pollfd>);
   void addConnection(int, std::shared_ptr<Connection>, pollfd);
   void removeConnection(int);
-  ssize_t sendAll(int, const MessageType&, const char*, size_t);
+  ssize_t send(int, const MessageType&, const char*, size_t);
 };
 
 #endif
