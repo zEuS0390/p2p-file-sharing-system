@@ -25,20 +25,18 @@ ConnectionManager::ConnectionManager(IMessageHandler& message_handler):
 ConnectionManager::~ConnectionManager()
 {
   // Close the sockets of all connected clients
-  std::lock_guard<std::mutex> lock(mutex);
   for (std::pair<const int, std::shared_ptr<Connection>>& connection: connections)
   {
     std::lock_guard<std::mutex> lock(connection.second->mutex);
-    shutdown(connection.second->endpoint.socket_descriptor, SHUT_RDWR);
-    close(connection.second->endpoint.socket_descriptor);
+    shutdown(connection.second->pollfd.fd, SHUT_RDWR);
+    close(connection.second->pollfd.fd);
   }
   connections.clear();
-  connection_pollfds.clear();
 }
 
 void ConnectionManager::parseIncomingMessage(
-  std::shared_ptr<Connection> connection,
-  std::shared_ptr<pollfd> connection_pollfd)
+  std::shared_ptr<Connection> connection
+)
 {
   while (true)
   {
@@ -66,7 +64,6 @@ void ConnectionManager::parseIncomingMessage(
 
       message_handler.dispatchMessage(
         connection,
-        connection_pollfd,
         connection->current_header,
         connection->recv_buffer.data() + connection->recv_offset
       );
@@ -89,11 +86,12 @@ void ConnectionManager::runEventLoop()
   while (is_event_running)
   {
     std::vector<pollfd> connection_pollfds_snapshot;
+
     {
       std::lock_guard<std::mutex> lock(mutex);
-      connection_pollfds_snapshot.reserve(connection_pollfds.size());
-      for (auto [socket_descriptor, connection_pollfd]: connection_pollfds)
-        connection_pollfds_snapshot.push_back(*connection_pollfd);
+      connection_pollfds_snapshot.reserve(connections.size());
+      for (auto& it: connections)
+        connection_pollfds_snapshot.push_back(it.second->pollfd);
     }
 
     int ready = poll(
@@ -102,106 +100,92 @@ void ConnectionManager::runEventLoop()
       10
     );
 
-    if (ready > 0)
+    if (ready <= 0)
+      continue;
+
+    for (auto connection_pollfd: connection_pollfds_snapshot)
     {
-      for (auto connection_pollfd: connection_pollfds_snapshot)
+      std::shared_ptr<Connection> connection;
+
       {
-        std::shared_ptr<Connection> connection;
-        std::unordered_map<int, std::shared_ptr<Connection>>::iterator it;
-        int connection_socket_descriptor;
-
-        {
-          std::lock_guard<std::mutex> lock(mutex);
-          it = connections.find(connection_pollfd.fd);
-          if (it == connections.end())
-            continue;
-        }
-        {
-          std::lock_guard<std::mutex> lock(it->second->mutex);
-          connection = it->second;
-          connection_socket_descriptor = connection_pollfd.fd;
-        }
-
-        {
-          std::lock_guard<std::mutex> lock(mutex);
-          auto it = connection_pollfds.find(connection_pollfd.fd);
-          if (it != connection_pollfds.end())
-          {
-            if (connection->send_offset < connection->send_buffer.size())
-              it->second->events |= POLLOUT;
-            else
-              it->second->events &= ~POLLOUT;
-          }
-        }
-
-        if (connection_pollfd.revents & (POLLHUP | POLLERR | POLLNVAL))
-        {
-          std::cout << "socket error or hangup." << std::endl;
-          std::cout.flush();
-          removeConnection(connection_socket_descriptor);
+        std::lock_guard<std::mutex> lock(mutex);
+        auto it {connections.find(connection_pollfd.fd)};
+        if (it == connections.end())
           continue;
-        }
+        // std::lock_guard<std::mutex> lock2(it->second->mutex);
+        connection = it->second;
+      }
 
-        if (connection_pollfd.revents & POLLIN)
-        {
-          char buffer[4096] {};
-          ssize_t recv_status = recv(connection_pollfd.fd, buffer, sizeof(buffer)-1, 0);
-          if (recv_status > 0)
-          {
-            std::lock_guard<std::mutex> lock(connection->mutex);
-            connection->recv_buffer.insert(
-                connection->recv_buffer.end(),
-                buffer,
-                buffer + recv_status
-            );
-            auto it = connection_pollfds.find(connection_pollfd.fd);
-            if (it != connection_pollfds.end())
-              parseIncomingMessage(connection, it->second);
-          }
-          else if (recv_status == 0)
-          {
-            std::cout << "disconnected cleanly." << std::endl;
-            std::cout.flush();
-            removeConnection(connection_socket_descriptor);
-            continue;
-          }
-          else
-          {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-              continue;
-            if (errno == EINTR)
-              continue;
-            removeConnection(connection_socket_descriptor);
-            continue;
-          }
-        }
+      {
+        std::lock_guard<std::mutex> lock(connection->mutex);
+        if (connection->send_offset < connection->send_buffer.size())
+          connection->pollfd.events |= POLLOUT;
+        else
+          connection->pollfd.events &= ~POLLOUT;
+      }
 
-        if (connection_pollfd.revents & POLLOUT)
+      if (connection_pollfd.revents & (POLLHUP | POLLERR | POLLNVAL))
+      {
+        std::cout << "socket error or hangup." << std::endl;
+        std::cout.flush();
+        removeConnection(connection->pollfd.fd);
+        continue;
+      }
+
+      if (connection_pollfd.revents & POLLIN)
+      {
+        char buffer[4096] {};
+        ssize_t recv_status = recv(connection_pollfd.fd, buffer, sizeof(buffer)-1, 0);
+        if (recv_status > 0)
         {
           std::lock_guard<std::mutex> lock(connection->mutex);
-          size_t remaining {connection->send_buffer.size() - connection->send_offset};
-          if (remaining > 0)
-          {
-            ssize_t bytes_sent = ::send(
-              connection->endpoint.socket_descriptor,
-              connection->send_buffer.data() + connection->send_offset,
-              remaining,
-              0
-            );
-            if (bytes_sent > 0)
-              connection->send_offset += bytes_sent;
-            else if (bytes_sent == 0)
-              continue;
-          }
-          if (connection->send_offset == connection->send_buffer.size())
-          {
-            connection->send_buffer.clear();
-            connection->send_offset = 0;
-            std::lock_guard<std::mutex> lock(mutex);
-            auto it = connection_pollfds.find(connection_pollfd.fd);
-            if (it != connection_pollfds.end())
-              it->second->events &= ~POLLOUT;
-          }
+          connection->recv_buffer.insert(
+              connection->recv_buffer.end(),
+              buffer,
+              buffer + recv_status
+          );
+          parseIncomingMessage(connection);
+        }
+        else if (recv_status == 0)
+        {
+          std::cout << "disconnected cleanly." << std::endl;
+          std::cout.flush();
+          removeConnection(connection->pollfd.fd);
+          continue;
+        }
+        else
+        {
+          if (errno == EAGAIN || errno == EWOULDBLOCK)
+            continue;
+          if (errno == EINTR)
+            continue;
+          removeConnection(connection->pollfd.fd);
+          continue;
+        }
+      }
+
+      if (connection_pollfd.revents & POLLOUT)
+      {
+        std::lock_guard<std::mutex> lock(connection->mutex);
+        size_t remaining {connection->send_buffer.size() - connection->send_offset};
+        if (remaining > 0)
+        {
+          ssize_t bytes_sent = ::send(
+            connection->pollfd.fd,
+            connection->send_buffer.data() + connection->send_offset,
+            remaining,
+            0
+          );
+          if (bytes_sent > 0)
+            connection->send_offset += bytes_sent;
+          else if (bytes_sent == 0)
+            continue;
+        }
+        if (connection->send_offset == connection->send_buffer.size())
+        {
+          connection->send_buffer.clear();
+          connection->send_offset = 0;
+          connection->pollfd.events &= ~POLLOUT;
         }
       }
     }
@@ -215,38 +199,37 @@ void ConnectionManager::stopEventLoop()
 
 void ConnectionManager::addConnection(
   int socket_desrciptor,
-  std::shared_ptr<Connection> connection,
-  pollfd connection_pollfd
+  const Endpoint& endpoint
 )
 {
-  std::lock(mutex, connection->mutex);
-  std::lock_guard<std::mutex> lock1(mutex, std::adopt_lock);
-  std::lock_guard<std::mutex> lock2(connection->mutex, std::adopt_lock);
-  connection_pollfds[socket_desrciptor] = std::make_shared<pollfd>(connection_pollfd);
+  std::lock_guard<std::mutex> lock1(mutex);
+
+  pollfd conn_pollfd;
+  conn_pollfd.fd = socket_desrciptor;
+  conn_pollfd.events = POLLIN;
+  conn_pollfd.revents = 0;
+
+  // Add the socket address information in the connections
+  std::shared_ptr<Connection> connection = std::make_shared<Connection>();
+  connection->endpoint = endpoint;
+  connection->pollfd = conn_pollfd;
   connections[socket_desrciptor] = connection;
 }
 
-void ConnectionManager::removeConnection(
-  int socket_descriptor
-)
+void ConnectionManager::removeConnection(int socket_descriptor)
 {
+  std::lock_guard<std::mutex> lock1(mutex);
   std::shared_ptr<Connection> connection;
-  {
-    std::lock_guard<std::mutex> lock(mutex);
-    std::unordered_map<int, std::shared_ptr<Connection>>::iterator it = connections.find(socket_descriptor);
-    if (it == connections.end())
-      return;
-    connection = it->second;
-  }
-  {
-    std::lock(mutex, connection->mutex);
-    std::lock_guard<std::mutex> lock1(mutex, std::adopt_lock);
-    std::lock_guard<std::mutex> lock2(connection->mutex, std::adopt_lock);
-    shutdown(connection->endpoint.socket_descriptor, SHUT_RDWR);
-    close(connection->endpoint.socket_descriptor);
-    connections.erase(connection->endpoint.socket_descriptor);
-    connection_pollfds.erase(socket_descriptor);
-  }
+  std::unordered_map<int, std::shared_ptr<Connection>>::iterator it {
+    connections.find(socket_descriptor)
+  };
+  if (it == connections.end())
+    return;
+  connection = it->second;
+  std::lock_guard<std::mutex> lock2(connection->mutex);
+  shutdown(connection->pollfd.fd, SHUT_RDWR);
+  close(connection->pollfd.fd);
+  connections.erase(connection->pollfd.fd);
 }
 
 ssize_t ConnectionManager::send(
@@ -268,9 +251,7 @@ ssize_t ConnectionManager::send(
     std::lock(mutex, connection->mutex);
     std::lock_guard<std::mutex> lock1(mutex, std::adopt_lock);
     std::lock_guard<std::mutex> lock2(connection->mutex, std::adopt_lock);
-    auto it = connection_pollfds.find(socket_descriptor);
-    if (it != connection_pollfds.end())
-      message_handler.queueMessage(connection, it->second, message_type, data, length);
+    message_handler.queueMessage(connection, message_type, data, length);
   }
   return 0;
 }

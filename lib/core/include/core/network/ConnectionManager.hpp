@@ -15,19 +15,17 @@ class ConnectionManager
 {
 protected:
   int descriptor;
-  std::mutex mutex;
-  std::unordered_map<int, std::shared_ptr<Connection>> connections;
-  std::unordered_map<int, std::shared_ptr<pollfd>> connection_pollfds;
-private:
-  std::atomic<bool> is_event_running;
   IMessageHandler& message_handler;
+  std::mutex mutex;
+  std::atomic<bool> is_event_running;
+  std::unordered_map<int, std::shared_ptr<Connection>> connections;
 public:
   ConnectionManager(IMessageHandler&);
   ~ConnectionManager();
   void runEventLoop();
   void stopEventLoop();
-  void parseIncomingMessage(std::shared_ptr<Connection>, std::shared_ptr<pollfd>);
-  void addConnection(int, std::shared_ptr<Connection>, pollfd);
+  void parseIncomingMessage(std::shared_ptr<Connection>);
+  void addConnection(int, const Endpoint&);
   void removeConnection(int);
   ssize_t send(int, const MessageType&, const char*, size_t);
 };

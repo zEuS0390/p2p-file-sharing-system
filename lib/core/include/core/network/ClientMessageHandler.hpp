@@ -12,13 +12,11 @@ class ClientMessageHandler: public IMessageHandler
 public:
   virtual void dispatchMessage(
     std::shared_ptr<Connection>,
-    std::shared_ptr<pollfd>,
     MessageHeader&,
     const char*
   ) override;
   virtual void queueMessage(
     std::shared_ptr<Connection>,
-    std::shared_ptr<pollfd>,
     const MessageType&,
     const char* data,
     size_t

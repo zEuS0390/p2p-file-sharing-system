@@ -3,13 +3,15 @@
 
 #include <mutex>
 #include <vector>
+#include <poll.h>
 
 #include "core/types/Endpoint.hpp"
 #include "core/types/MessageHeaders.hpp"
 
 struct Connection 
 {
-  Endpoint endpoint;
+  Endpoint endpoint {};
+  struct pollfd pollfd {};
   std::vector<char> recv_buffer;
   bool reading_header {true};
   size_t recv_offset {0};

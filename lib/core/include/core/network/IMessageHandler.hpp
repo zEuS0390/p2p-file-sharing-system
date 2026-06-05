@@ -11,13 +11,11 @@ class IMessageHandler
 public:
   virtual void dispatchMessage(
     std::shared_ptr<Connection>,
-    std::shared_ptr<pollfd>,
     MessageHeader&,
     const char*
   ) = 0;
   virtual void queueMessage(
     std::shared_ptr<Connection>,
-    std::shared_ptr<pollfd>,
     const MessageType&,
     const char*,
     size_t

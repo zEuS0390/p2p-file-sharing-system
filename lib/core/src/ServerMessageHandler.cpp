@@ -1,7 +1,7 @@
-#include <cstring>
-#include <iostream>
-#include <memory>
 #include <sys/socket.h>
+#include <cstring>
+#include <string>
+#include <memory>
 
 #include "core/network/ServerMessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
@@ -10,7 +10,6 @@
 
 void ServerMessageHandler::dispatchMessage(
  std::shared_ptr<Connection> connection,
- std::shared_ptr<pollfd> connection_pollfd,
  MessageHeader& message_header,
  const char* data
 )
@@ -21,7 +20,6 @@ void ServerMessageHandler::dispatchMessage(
     {
       queueMessage(
         connection,
-        connection_pollfd,
         MessageType::MESSAGE,
         data,
         message_header.payload_size
@@ -46,7 +44,6 @@ void ServerMessageHandler::dispatchMessage(
 
       queueMessage(
         connection,
-        connection_pollfd,
         MessageType::FILE_INFO,
         payload.data(),
         payload.size()
@@ -61,7 +58,6 @@ void ServerMessageHandler::dispatchMessage(
 
 void ServerMessageHandler::queueMessage(
   std::shared_ptr<Connection> connection,
-  std::shared_ptr<pollfd> connection_pollfd,
   const MessageType& message_type,
   const char* data,
   size_t length
@@ -87,5 +83,5 @@ void ServerMessageHandler::queueMessage(
     length
   );
 
-  connection_pollfd->events |= POLLOUT;
+  connection->pollfd.events |= POLLOUT;
 }

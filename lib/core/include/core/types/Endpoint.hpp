@@ -6,7 +6,6 @@
 
 struct Endpoint
 {
-  int socket_descriptor;
   struct sockaddr_in socket_address_information {};
   unsigned int socket_address_information_length {};
 };

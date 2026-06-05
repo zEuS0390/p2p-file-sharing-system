@@ -1,13 +1,10 @@
-#include <memory>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <netdb.h>
 #include <unistd.h>
-#include <iostream>
+#include <netdb.h>
 
 #include "core/network/Client.hpp"
 #include "core/network/IMessageHandler.hpp"
-#include "core/types/Connection.hpp"
 #include "core/types/Endpoint.hpp"
 #include "core/types/MessageType.hpp"
 
@@ -79,24 +76,14 @@ int Client::connect(const std::string& hostname, int port)
   // Create a socket address information of the server
   struct sockaddr_in* socket_address = (struct sockaddr_in*)server_address->ai_addr;
   unsigned int socket_address_length = server_address->ai_addrlen;
+
   Endpoint endpoint;
-  endpoint.socket_descriptor = server_socket_descriptor;
   endpoint.socket_address_information_length = socket_address_length;
   endpoint.socket_address_information = *socket_address;
 
-  // Add the socket address information in the connections
-  std::shared_ptr<Connection> connection = std::make_shared<Connection>();
-  connection->endpoint = endpoint;
-
-  pollfd client_pollfd;
-  client_pollfd.fd = server_socket_descriptor;
-  client_pollfd.events = POLLIN;
-  client_pollfd.revents = 0;
-
   client_connection_manager.addConnection(
     server_socket_descriptor,
-    connection,
-    client_pollfd
+    endpoint
   );
 
   freeaddrinfo(server_address);

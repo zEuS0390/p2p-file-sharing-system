@@ -10,7 +10,6 @@
 
 void ClientMessageHandler::dispatchMessage(
  std::shared_ptr<Connection> connection,
- std::shared_ptr<pollfd> connection_pollfd,
  MessageHeader& message_header,
  const char* data
 )
@@ -46,7 +45,6 @@ void ClientMessageHandler::dispatchMessage(
 
 void ClientMessageHandler::queueMessage(
   std::shared_ptr<Connection> connection,
-  std::shared_ptr<pollfd> connection_pollfd,
   const MessageType& message_type,
   const char* data,
   size_t length
@@ -72,5 +70,5 @@ void ClientMessageHandler::queueMessage(
     length
   );
 
-  connection_pollfd->events |= POLLOUT;
+  connection->pollfd.events |= POLLOUT;
 }

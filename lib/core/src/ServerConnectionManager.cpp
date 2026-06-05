@@ -21,7 +21,7 @@ void ServerConnectionManager::initServer(uint16_t port)
   setsockopt(descriptor, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
   // Create an address information for the server socket
-  struct sockaddr_in server_address;
+  struct sockaddr_in server_address {};
   server_address.sin_family = AF_INET;
   server_address.sin_port = htons(port);
   server_address.sin_addr.s_addr = INADDR_ANY;
@@ -60,17 +60,8 @@ void ServerConnectionManager::startAcceptConnectionLoop()
     if (socket_descriptor < 0)
       continue;
 
-    client_info.socket_descriptor = socket_descriptor;
+    addConnection(socket_descriptor, client_info);
 
-    std::shared_ptr<Connection> connection = std::make_shared<Connection>();
-    connection->endpoint = client_info;
-
-    pollfd connection_pollfd;
-    connection_pollfd.fd = socket_descriptor;
-    connection_pollfd.events = POLLIN;
-    connection_pollfd.revents = 0;
-
-    addConnection(socket_descriptor, connection, connection_pollfd);
     std::cout << "Client connected successfully." << std::endl;
     std::cout.flush();
   }
