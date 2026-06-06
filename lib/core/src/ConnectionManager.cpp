@@ -17,8 +17,8 @@
 // Constructor
 ConnectionManager::ConnectionManager(IMessageHandler& message_handler):
   descriptor{socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)},
-  is_event_running{false},
-  message_handler{message_handler}
+  message_handler{message_handler},
+  is_event_running{false}
 {
 }
 
@@ -112,7 +112,6 @@ void ConnectionManager::runEventLoop()
         auto it {connections.find(connection_pollfd.fd)};
         if (it == connections.end())
           continue;
-        // std::lock_guard<std::mutex> lock2(it->second->mutex);
         connection = it->second;
       }
 
