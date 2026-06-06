@@ -1,40 +1,28 @@
-#include "core/network/Server.hpp"
+#include <iostream>
 #include <unistd.h>
 #include <csignal>
-#include <thread>
 
-volatile sig_atomic_t stop {0};
-
-void handler(int s)
-{
-  stop = 1;
-}
+#include "core/network/ServerMessageHandler.hpp"
+#include "core/network/Server.hpp"
 
 // Main entry point of the program
-int main()
+int main(int argc, char* argv[])
 {
-  struct sigaction sigIntHandler;
-
-  sigIntHandler.sa_handler = handler;
-  sigemptyset(&sigIntHandler.sa_mask);
-  sigIntHandler.sa_flags = 0;
-
-  sigaction(SIGINT, &sigIntHandler, nullptr);
-
-  Server server;
-  std::thread listeningThread {&Server::startListening, std::ref(server)};
-  std::thread monitoringThread (&Server::runEventLoop, std::ref(server));
-
-  while (!stop)
+  if (argc != 2)
   {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::cerr << "Usage: " << argv[0] << " <port>" << std::endl;
+    return 1;
   }
 
-  server.stopListening();
-  server.stopEventLoop();
+  ServerMessageHandler server_message_handler;
+  Server server {server_message_handler};
 
-  listeningThread.join();
-  monitoringThread.join();
+  server.start(std::stoi(argv[1]));
+
+  std::cout << "Press any key to stop..." << std::endl;
+  std::cin.get();
+
+  server.stop();
 
   return 0;
 }

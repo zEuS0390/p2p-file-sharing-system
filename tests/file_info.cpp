@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
 
   ClientMessageHandler client_message_handler;
   Client client {client_message_handler};
-  int server_socket_descriptor = client.connectToServer(argv[1], atoi(argv[2]));
+  int server_socket_descriptor = client.connect(argv[1], atoi(argv[2]));
 
   if (server_socket_descriptor < 0)
   {
@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
 
   ssize_t send_status;
 
-  send_status = client.sendAll(
+  send_status = client.send(
     server_socket_descriptor,
     MessageType::FILE_INFO,
     reinterpret_cast<char*>(&message_header),
@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
   std::cout << "Press enter to continue..." << std::endl;
   std::cin.get();
 
-  client.disconnectToServer(server_socket_descriptor);
+  client.disconnect(server_socket_descriptor);
 
   client.stop();
 

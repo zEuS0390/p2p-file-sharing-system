@@ -1,41 +1,91 @@
+#include "core/network/ClientMessageHandler.hpp"
+#include "core/types/MessageHeaders.hpp"
+#include "core/types/MessageType.hpp"
 #include "core/network/Client.hpp"
-#include <cstdlib>
 #include <iostream>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
 #include <thread>
 #include <chrono>
+#include <ios>
 
 // Main entry point of the program
 int main(int argc, char* argv[])
 {
-  if (argc == 1)
+  if (argc != 5)
   {
-    std::cerr << argv[0] << " requires two arguments (hostname, port)." << std::endl;
+    std::cerr << "Usage: " << argv[0] << " <hostname> <port> <speed_milliseconds> <file_path>" << std::endl;
     return 1;
   }
 
-  Client client;
-  int server_socket_descriptor = client.connectToServer(argv[1], atoi(argv[2]));
+  ClientMessageHandler client_message_handler;
+  Client client {client_message_handler};
+  int server_socket_descriptor = client.connect(argv[1], atoi(argv[2]));
 
   if (server_socket_descriptor < 0)
-    return 1;
-
-  std::cout << "Press enter to continue..." << std::endl;
-  std::cin.get();
-
-  for (const char& c: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ@!#{_-?: ")
   {
-    client.sendMessage(server_socket_descriptor, std::string(1, c));
-    std::cout << std::string(1, c);
-    std::cout.flush();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::cout << "Error connecting to the server." << std::endl;
+    return 1;
   }
-  std::cout << std::endl;
+
+  client.start();
 
   std::cout << "Press enter to continue..." << std::endl;
   std::cin.get();
-  client.sendMessage(server_socket_descriptor, std::string(1, '\n'));
 
-  client.disconnectToServer(server_socket_descriptor);
+  std::fstream file{argv[4], std::ios::in};
+
+  if (!(file.is_open()))
+  {
+    std::cerr << "Error opening the file." << std::endl;
+    return 1;
+  }
+
+  char ch;
+  while (file.get(ch))
+  {
+    MessageHeader message_header;
+    message_header.type = MessageType::MESSAGE;
+    message_header.payload_size = 1;
+
+    ssize_t send_status;
+
+    send_status = client.send(
+      server_socket_descriptor,
+      MessageType::MESSAGE,
+      reinterpret_cast<char*>(&message_header),
+      sizeof(message_header)
+    );
+
+    if (send_status < 0)
+    {
+      std::cout << "Error sending the message to server." << std::endl;
+      break;
+    }
+
+    send_status = client.send(
+        server_socket_descriptor,
+        MessageType::MESSAGE,
+        std::string(1, ch).c_str(),
+        message_header.payload_size
+    );
+
+    if (send_status < 0)
+    {
+      std::cout << "Error sending the message to server." << std::endl;
+      break;
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(std::stoi(argv[3])));
+  }
+
+  std::cout << "Press enter to continue..." << std::endl;
+  std::cin.get();
+
+  client.disconnect(server_socket_descriptor);
+
+  client.stop();
 
   return 0;
 }
