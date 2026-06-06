@@ -1,7 +1,11 @@
 #include <iostream>
+#include <mutex>
+#include <netdb.h>
 #include <stdexcept>
 #include <cstring>
+#include <sys/socket.h>
 #include <unistd.h>
+#include <sstream>
 
 #include "core/network/ServerConnectionManager.hpp"
 #include "core/network/IMessageHandler.hpp"
@@ -20,18 +24,27 @@ void ServerConnectionManager::initServer(uint16_t port)
   int opt = 1;
   setsockopt(descriptor, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-  // Create an address information for the server socket
-  struct sockaddr_in server_address {};
-  server_address.sin_family = AF_INET;
-  server_address.sin_port = htons(port);
-  server_address.sin_addr.s_addr = INADDR_ANY;
+  // // Create an address information for the server socket
+  struct addrinfo* server_address {nullptr};
+  struct addrinfo hints;
+  std::memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_protocol = IPPROTO_TCP;
+  hints.ai_flags = AI_PASSIVE;
+
+  std::string port_str {std::to_string(port)};
+  int getaddrinfo_status {getaddrinfo(nullptr, port_str.c_str(), &hints, &server_address)};
+
+  if (getaddrinfo_status < 0)
+    throw std::runtime_error(strerror(errno));
 
   // Bind the address information on the server socket
   int bind_result {
     bind(
       descriptor,
-      (const struct sockaddr*)&server_address,
-      sizeof(server_address)
+      server_address->ai_addr,
+      server_address->ai_addrlen
     )
   };
 
@@ -69,6 +82,7 @@ void ServerConnectionManager::startAcceptConnectionLoop()
 
 void ServerConnectionManager::stopAcceptConnectionLoop()
 {
+  std::lock_guard<std::mutex> lock(mutex);
   is_listening = false;
   shutdown(descriptor, SHUT_RDWR);
   close(descriptor);
