@@ -1,5 +1,5 @@
-#ifndef NETWORK_MESSAGE_TYPE_HPP
-#define NETWORK_MESSAGE_TYPE_HPP
+#ifndef CORE_TYPES_MESSAGE_TYPE_HPP
+#define CORE_TYPES_MESSAGE_TYPE_HPP
 
 enum MessageType
 {
@@ -8,6 +8,7 @@ enum MessageType
   FILE_CHUNK,
   FILE_ACK,
   FILE_END,
+  FILE_ERROR,
   MESSAGE
 };
 

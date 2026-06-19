@@ -1,10 +1,14 @@
 #include <sys/socket.h>
 #include <cstring>
+#include <fstream>
 #include <string>
+#include <iostream>
 #include <memory>
+#include <ios>
 
 #include "core/network/ServerMessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
+#include "core/types/FileErrorCode.hpp"
 #include "core/types/MessageType.hpp"
 #include "core/types/Connection.hpp"
 
@@ -26,21 +30,39 @@ void ServerMessageHandler::dispatchMessage(
       );
       break;
     }
-    case MessageType::FILE_INFO:
+    case MessageType::FILE_REQUEST:
     {
-      std::string file_name {"sample.mp4"};
-      uint64_t file_size {4096};
+      std::string file_name {data};
+
+      std::ifstream input_file_stream {file_name, std::ios::binary | std::ios::ate};
+
+      if (!input_file_stream.is_open())
+      {
+        std::string buffer {std::strerror(errno)};
+        FileErrorHeader file_error_header;
+        file_error_header.error_code = FileErrorCode::FILE_GENERIC_ERROR;
+        file_error_header.message_size = buffer.size();
+        std::vector<char> payload;
+        payload.resize(sizeof(FileErrorHeader) + buffer.size());
+        std::memcpy(payload.data(), &file_error_header, sizeof(FileErrorHeader));
+        std::memcpy(payload.data() + sizeof(FileErrorHeader), buffer.c_str(), buffer.size());
+        queueMessage(connection, MessageType::FILE_ERROR, payload.data(), payload.size());
+        input_file_stream.close();
+      }
+
+      std::streamsize size {input_file_stream.tellg()};
+      input_file_stream.close();
 
       FileInfoHeader file_information_header;
       file_information_header.filename_size = file_name.size();
-      file_information_header.file_size = file_size;
+      file_information_header.file_size = size;
 
       std::vector<char> payload;
 
-      payload.resize(sizeof(file_information_header) + file_name.size() + 1);
+      payload.resize(sizeof(file_information_header) + file_name.size());
 
-      std::memcpy(payload.data(), &file_information_header, sizeof(file_information_header));
-      std::memcpy(payload.data() + sizeof(file_information_header), file_name.data(), file_name.size() + 1);
+      std::memcpy(payload.data(), &file_information_header, sizeof(FileInfoHeader));
+      std::memcpy(payload.data() + sizeof(FileInfoHeader), file_name.data(), file_name.size());
 
       queueMessage(
         connection,

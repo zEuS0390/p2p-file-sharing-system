@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <memory>
+#include <string>
 #include <sys/poll.h>
 
 #include "core/network/ClientMessageHandler.hpp"
@@ -25,18 +26,24 @@ void ClientMessageHandler::dispatchMessage(
     case MessageType::FILE_INFO:
     {
       FileInfoHeader file_info_header;
-
       std::memcpy(&file_info_header, data, sizeof(FileInfoHeader));
-
       const char* file_name {data + sizeof(FileInfoHeader)};
-
       std::string file_name_str {
         file_name,
         file_info_header.filename_size
       };
-      std::cout << "filename: " << file_name_str << std::endl;
-      std::cout << "filename size: " << file_info_header.filename_size << std::endl;
-      std::cout << "file_size: " << file_info_header.file_size << std::endl;
+      std::cout << "Filename: " << file_name_str << std::endl;
+      std::cout << "Filename Byte Size: " << file_info_header.filename_size << std::endl;
+      std::cout << "File Byte Size: " << file_info_header.file_size << std::endl;
+      break;
+    }
+    case MessageType::FILE_ERROR:
+    {
+      FileErrorHeader file_error_header;
+      std::memcpy(&file_error_header, data, sizeof(FileErrorHeader));
+      const char* message {data + sizeof(FileErrorHeader)};
+      std::cout << message << std::endl;
+      break;
     }
     default:
       break;
