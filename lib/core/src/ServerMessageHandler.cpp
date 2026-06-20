@@ -32,7 +32,11 @@ void ServerMessageHandler::dispatchMessage(
     }
     case MessageType::FILE_REQUEST:
     {
-      std::string file_name {data};
+      FileRequestHeader file_request_header {};
+
+      std::memcpy(&file_request_header, data, message_header.payload_size);
+
+      std::string file_name {data + sizeof(FileRequestHeader)};
 
       std::ifstream input_file_stream {file_name, std::ios::binary | std::ios::ate};
 
