@@ -1,7 +1,7 @@
 #ifndef CORE_TYPES_MESSAGE_TYPE_HPP
 #define CORE_TYPES_MESSAGE_TYPE_HPP
 
-enum MessageType
+enum class MessageType
 {
   FILE_REQUEST,
   FILE_INFO,
