@@ -2,6 +2,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <iostream>
+#include <cstring>
 
 #include "core/network/Client.hpp"
 #include "core/network/IMessageHandler.hpp"
@@ -19,76 +21,69 @@ Client::~Client()
 {
 }
 
-// Connect to the server with the given hostname and port
+// Connect to the server with the given hostname and port.
 int Client::connect(const std::string& hostname, int port)
 {
-  // Declare a variable that points to an address information structure
-  // that will be populated when the getaddrinfo function is invoked.
-  struct addrinfo* server_address {};
+    // Retrieve the server's network addresses.
+    struct addrinfo* server_addresses = nullptr;
 
-  // Declare an address information structure that will be used
-  // to filter and define the type of network address that the
-  // getadrinfo function returns.
-  struct addrinfo hints {};
+    struct addrinfo hints {};
+    hints.ai_family = AF_UNSPEC;          // IPv4 or IPv6
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
 
-  hints.ai_family = AF_INET;
-  hints.ai_protocol = IPPROTO_TCP;
-  hints.ai_socktype = SOCK_STREAM;
+    int getaddrinfo_status = getaddrinfo(
+        hostname.c_str(),
+        std::to_string(port).c_str(),
+        &hints,
+        &server_addresses);
 
-  // Translate a human-readable hostname and port into a
-  // a format that a computer can use to established a
-  // network connection.
-  int get_addrinfo_status {
-    getaddrinfo(hostname.c_str(),
-    std::to_string(port).c_str(),
-    &hints,
-    &server_address)
-  };
+    if (getaddrinfo_status != 0)
+    {
+        std::cerr << gai_strerror(getaddrinfo_status) << std::endl;
+        return -1;
+    }
 
-  if (get_addrinfo_status < 0)
-  {
-    freeaddrinfo(server_address);
-    return -1;
-  }
+    int server_socket_descriptor = -1;
+    Endpoint endpoint {};
 
-  // Create an endpoint for communication. It acts like
-  // opening a file so the operating system can prepare
-  // a channel for sending and receving data accross a
-  // network.
-  int server_socket_descriptor {
-    socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
-  };
+    for (addrinfo* p = server_addresses; p != nullptr; p = p->ai_next)
+    {
+        int sock = socket(
+            p->ai_family,
+            p->ai_socktype,
+            p->ai_protocol);
 
-  // Establish a connection to be able to communicate
-  int connect_status {
-    ::connect(
-      server_socket_descriptor,
-      server_address->ai_addr,
-      server_address->ai_addrlen)
-  };
+        if (sock == -1)
+            continue;
 
-  if (connect_status < 0)
-  {
-    freeaddrinfo(server_address);
-    return -2;
-  }
+        if (::connect(sock, p->ai_addr, p->ai_addrlen) == 0)
+        {
+            server_socket_descriptor = sock;
 
-  // Create a socket address information of the server
-  struct sockaddr_in* socket_address = (struct sockaddr_in*)server_address->ai_addr;
-  unsigned int socket_address_length = server_address->ai_addrlen;
+            endpoint.socket_address_information_length = p->ai_addrlen;
 
-  Endpoint endpoint;
-  endpoint.socket_address_information_length = socket_address_length;
-  endpoint.socket_address_information = *socket_address;
+            std::memcpy(
+                &endpoint.socket_address_information,
+                p->ai_addr,
+                p->ai_addrlen);
 
-  client_connection_manager.addConnection(
-    server_socket_descriptor,
-    endpoint
-  );
+            break;
+        }
 
-  freeaddrinfo(server_address);
+        close(sock);
+    }
 
-  return server_socket_descriptor;
+    freeaddrinfo(server_addresses);
+
+    if (server_socket_descriptor == -1)
+        return -2;
+
+    client_connection_manager.addConnection(
+        server_socket_descriptor,
+        endpoint);
+
+    return server_socket_descriptor;
 }
 
 // Disconnect to the server

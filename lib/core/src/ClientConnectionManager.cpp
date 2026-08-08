@@ -6,5 +6,4 @@ ClientConnectionManager::ClientConnectionManager(
 ):
   ConnectionManager{message_handler}
 {
-
 }

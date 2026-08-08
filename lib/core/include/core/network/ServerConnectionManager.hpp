@@ -2,6 +2,7 @@
 #define CORE_NETWORK_SERVER_CONNECTION_MANAGER_HPP
 
 #include <atomic>
+#include <vector>
 
 #include "core/network/ConnectionManager.hpp"
 #include "core/network/IMessageHandler.hpp"
@@ -9,6 +10,7 @@
 class ServerConnectionManager: public ConnectionManager
 {
 private:
+  std::vector<int> listening_socket_descriptors;
   std::atomic<bool> is_listening;
 public:
   ServerConnectionManager(IMessageHandler&);
