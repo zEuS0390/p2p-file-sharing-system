@@ -16,7 +16,6 @@
 
 // Constructor
 ConnectionManager::ConnectionManager(IMessageHandler& message_handler):
-  descriptor{socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)},
   message_handler{message_handler},
   is_event_running{false}
 {

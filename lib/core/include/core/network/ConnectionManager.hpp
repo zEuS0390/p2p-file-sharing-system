@@ -14,7 +14,6 @@
 class ConnectionManager
 {
 protected:
-  int descriptor;
   IMessageHandler& message_handler;
   std::mutex mutex;
   std::atomic<bool> is_event_running;
