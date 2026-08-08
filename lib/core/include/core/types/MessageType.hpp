@@ -3,6 +3,7 @@
 
 enum class MessageType
 {
+  FILE_DOWNLOAD_REQUEST,
   FILE_REQUEST,
   FILE_INFO,
   FILE_CHUNK,
