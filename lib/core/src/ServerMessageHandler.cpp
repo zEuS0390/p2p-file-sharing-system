@@ -33,13 +33,11 @@ void ServerMessageHandler::dispatchMessage(
     case MessageType::FILE_REQUEST:
     {
       FileRequestHeader file_request_header {};
-
       std::memcpy(&file_request_header, data, message_header.payload_size);
-
-      std::string file_name {data + sizeof(FileRequestHeader)};
-
+      const char* file_name {data + sizeof(file_request_header)};
       std::ifstream input_file_stream {file_name, std::ios::binary | std::ios::ate};
 
+      // Check if oopening the file was not successful
       if (!input_file_stream.is_open())
       {
         std::string buffer {std::strerror(errno)};
@@ -52,22 +50,24 @@ void ServerMessageHandler::dispatchMessage(
         std::memcpy(payload.data() + sizeof(FileErrorHeader), buffer.c_str(), buffer.size());
         queueMessage(connection, MessageType::FILE_ERROR, payload.data(), payload.size());
         input_file_stream.close();
+        break;
       }
 
       std::streamsize size {input_file_stream.tellg()};
       input_file_stream.close();
 
       FileInfoHeader file_information_header;
-      file_information_header.filename_size = file_name.size();
+      file_information_header.filename_size = file_request_header.filename_size;
       file_information_header.file_size = size;
 
       std::vector<char> payload;
 
-      payload.resize(sizeof(file_information_header) + file_name.size());
+      payload.resize(sizeof(file_information_header) + file_request_header.filename_size);
 
       std::memcpy(payload.data(), &file_information_header, sizeof(FileInfoHeader));
-      std::memcpy(payload.data() + sizeof(FileInfoHeader), file_name.data(), file_name.size());
+      std::memcpy(payload.data() + sizeof(FileInfoHeader), file_name, file_request_header.filename_size);
 
+      // Send file information
       queueMessage(
         connection,
         MessageType::FILE_INFO,
