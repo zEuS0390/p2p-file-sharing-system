@@ -19,7 +19,8 @@ void ClientMessageHandler::dispatchMessage(
   {
     case MessageType::MESSAGE:
     {
-      std::cout << data;
+      std::string data_str {data, message_header.payload_size};
+      std::cout << data_str;
       std::cout.flush();
       break;
     }
