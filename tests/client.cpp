@@ -1,7 +1,3 @@
-#include "core/network/ClientMessageHandler.hpp"
-#include "core/types/MessageHeaders.hpp"
-#include "core/types/MessageType.hpp"
-#include "core/network/Client.hpp"
 #include <iostream>
 #include <cstdlib>
 #include <cstring>
@@ -9,6 +5,11 @@
 #include <thread>
 #include <chrono>
 #include <ios>
+
+#include "core/network/ClientMessageHandler.hpp"
+#include "core/types/MessageHeaders.hpp"
+#include "core/types/MessageType.hpp"
+#include "core/network/Client.hpp"
 
 // Main entry point of the program
 int main(int argc, char* argv[])
