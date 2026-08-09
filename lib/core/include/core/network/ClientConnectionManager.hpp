@@ -7,7 +7,7 @@
 class ClientConnectionManager: public ConnectionManager
 {
 public:
-  ClientConnectionManager(IMessageHandler&);
+  explicit ClientConnectionManager(IMessageHandler&);
 };
 
 #endif

@@ -14,7 +14,7 @@ private:
   ClientConnectionManager client_connection_manager;
   std::thread event_thread;
 public:
-  Client(IMessageHandler&);
+  explicit Client(IMessageHandler&);
   ~Client();
   int connect(const std::string&, int);
   int disconnect(int);

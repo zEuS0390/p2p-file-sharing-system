@@ -17,7 +17,7 @@ private:
   std::thread event_thread;
   bool is_running;
 public:
-  Server(IMessageHandler&);
+  explicit Server(IMessageHandler&);
   ~Server();
   void start(uint16_t);
   void stop();

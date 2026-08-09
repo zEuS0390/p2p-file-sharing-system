@@ -20,7 +20,7 @@ private:
   std::thread client_thread;
   bool is_running;
 public:
-  Peer(IMessageHandler&, IMessageHandler&);
+  explicit Peer(IMessageHandler&, IMessageHandler&);
   ~Peer();
   void start(uint16_t);
   void stop();

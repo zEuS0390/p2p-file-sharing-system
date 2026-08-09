@@ -13,7 +13,7 @@ private:
   std::vector<int> listening_socket_descriptors;
   std::atomic<bool> is_listening;
 public:
-  ServerConnectionManager(IMessageHandler&);
+  explicit ServerConnectionManager(IMessageHandler&);
   void startAcceptConnectionLoop();
   void stopAcceptConnectionLoop();
   void initServer(uint16_t);

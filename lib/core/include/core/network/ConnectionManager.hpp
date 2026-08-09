@@ -19,7 +19,7 @@ protected:
   std::atomic<bool> is_event_running;
   std::unordered_map<int, std::shared_ptr<Connection>> connections;
 public:
-  ConnectionManager(IMessageHandler&);
+  explicit ConnectionManager(IMessageHandler&);
   ~ConnectionManager();
   void runEventLoop();
   void stopEventLoop();
