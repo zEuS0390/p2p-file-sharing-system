@@ -89,7 +89,7 @@ void ConnectionManager::runEventLoop()
     {
       std::lock_guard<std::mutex> lock(mutex);
       connection_pollfds_snapshot.reserve(connections.size());
-      for (auto& it: connections)
+      for (const auto& it: connections)
         connection_pollfds_snapshot.push_back(it.second->pollfd);
     }
 
