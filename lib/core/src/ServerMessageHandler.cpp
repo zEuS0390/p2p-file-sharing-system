@@ -33,9 +33,10 @@ void ServerMessageHandler::dispatchMessage(
     case MessageType::FILE_REQUEST:
     {
       FileRequestHeader file_request_header {};
-      std::memcpy(&file_request_header, data, message_header.payload_size);
+      std::memcpy(&file_request_header, data, sizeof(FileRequestHeader));
       const char* file_name {data + sizeof(file_request_header)};
-      std::ifstream input_file_stream {file_name, std::ios::binary | std::ios::ate};
+      std::string file_name_str {file_name, file_request_header.filename_size};
+      std::ifstream input_file_stream {file_name_str, std::ios::binary | std::ios::ate};
 
       // Check if oopening the file was not successful
       if (!input_file_stream.is_open())
@@ -65,7 +66,7 @@ void ServerMessageHandler::dispatchMessage(
       payload.resize(sizeof(file_information_header) + file_request_header.filename_size);
 
       std::memcpy(payload.data(), &file_information_header, sizeof(FileInfoHeader));
-      std::memcpy(payload.data() + sizeof(FileInfoHeader), file_name, file_request_header.filename_size);
+      std::memcpy(payload.data() + sizeof(FileInfoHeader), file_name_str.c_str(), file_request_header.filename_size);
 
       // Send file information
       queueMessage(
