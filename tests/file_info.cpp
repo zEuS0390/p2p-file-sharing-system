@@ -1,17 +1,18 @@
-#include "core/network/ClientMessageHandler.hpp"
-#include "core/types/MessageHeaders.hpp"
-#include "core/types/MessageType.hpp"
-#include "core/network/Client.hpp"
 #include <iostream>
 #include <cstdlib>
 #include <cstring>
 
+#include "core/network/ClientMessageHandler.hpp"
+#include "core/types/MessageHeaders.hpp"
+#include "core/types/MessageType.hpp"
+#include "core/network/Client.hpp"
+
 // Main entry point of the program
 int main(int argc, char* argv[])
 {
-  if (argc != 3)
+  if (argc != 4)
   {
-    std::cerr << "Usage: " << argv[0] << " <hostname> <port>" << std::endl;
+    std::cerr << "Usage: " << argv[0] << " <hostname> <port> <filename>" << std::endl;
     return 1;
   }
 
@@ -30,17 +31,24 @@ int main(int argc, char* argv[])
   std::cout << "Press enter to continue..." << std::endl;
   std::cin.get();
 
-  MessageHeader message_header;
-  message_header.type = MessageType::FILE_INFO;
-  message_header.payload_size = 1;
+  std::string file_name {argv[3]};
+
+  FileRequestHeader file_request_header;
+  file_request_header.filename_size = file_name.size();
+
+  std::vector<char> payload;
+  payload.resize(sizeof(FileRequestHeader) + file_name.size());
+
+  std::memcpy(payload.data(), &file_request_header, sizeof(FileRequestHeader));
+  std::memcpy(payload.data() + sizeof(FileRequestHeader), file_name.data(), file_name.size());
 
   ssize_t send_status;
 
   send_status = client.send(
     server_socket_descriptor,
-    MessageType::FILE_INFO,
-    reinterpret_cast<char*>(&message_header),
-    sizeof(message_header)
+    MessageType::FILE_REQUEST,
+    payload.data(),
+    payload.size()
   );
 
   if (send_status < 0)
