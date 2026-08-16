@@ -6,6 +6,9 @@
 #include "core/network/IMessageHandler.hpp"
 #include "core/types/Connection.hpp"
 
+/*
+ * Handles message operations for the ServerConnectionManager.
+ */
 class ServerMessageHandler: public IMessageHandler
 {
 public:

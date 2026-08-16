@@ -8,6 +8,9 @@
 #include "core/types/Endpoint.hpp"
 #include "core/types/MessageHeaders.hpp"
 
+/*
+ * A structure for both server and client containing connection information.
+ */
 struct Connection 
 {
   Endpoint endpoint {};
@@ -22,3 +25,4 @@ struct Connection
 };
 
 #endif
+

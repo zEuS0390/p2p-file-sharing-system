@@ -7,6 +7,9 @@
 #include "core/network/ConnectionManager.hpp"
 #include "core/network/IMessageHandler.hpp"
 
+/*
+ * Manages the connection with the clients.
+ */
 class ServerConnectionManager: public ConnectionManager
 {
 private:

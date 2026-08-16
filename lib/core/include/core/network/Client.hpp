@@ -8,6 +8,10 @@
 #include "core/network/IMessageHandler.hpp"
 #include "core/types/MessageType.hpp"
 
+/*
+ * Manages the connection to the server and provides
+ * operations for communicating with it.
+ */
 class Client
 {
 private:

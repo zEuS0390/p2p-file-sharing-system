@@ -7,6 +7,9 @@
 #include "core/types/Connection.hpp"
 #include <memory>
 
+/*
+ * Handles message operations for the ClientConnectionManager.
+ */
 class ClientMessageHandler: public IMessageHandler
 {
 public:

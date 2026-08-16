@@ -11,6 +11,9 @@
 #include "core/types/Connection.hpp"
 #include "core/types/MessageType.hpp"
 
+/*
+ * Base class for both client and server to manage connections.
+ */
 class ConnectionManager
 {
 protected:

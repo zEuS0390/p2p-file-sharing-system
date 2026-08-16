@@ -6,6 +6,9 @@
 #include "core/types/MessageHeaders.hpp"
 #include "core/types/Connection.hpp"
 
+/*
+ * Interface class for both client and server to manage message operations.
+ */
 class IMessageHandler
 {
 public:
