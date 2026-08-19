@@ -6,44 +6,44 @@
 Peer::Peer(
   IMessageHandler& server_message_handler,
   IMessageHandler& client_message_handler):
-  client(client_message_handler),
-  server(server_message_handler),
-  is_running{false}
+  m_client(client_message_handler),
+  m_server(server_message_handler),
+  m_is_running{false}
 {
 }
 
 Peer::~Peer()
 {
-  if (is_running)
+  if (m_is_running)
     stop();
-  if (server_thread.joinable())
-    server_thread.join();
-  if (client_thread.joinable())
-    client_thread.join();
+  if (m_server_thread.joinable())
+    m_server_thread.join();
+  if (m_client_thread.joinable())
+    m_client_thread.join();
 }
 
 void Peer::start(uint16_t port)
 {
-  is_running = true;
-  server_thread = std::thread {&Server::start, std::ref(server), port};
-  client_thread = std::thread {&Client::start, std::ref(client)};
+  m_is_running = true;
+  m_server_thread = std::thread {&Server::start, std::ref(m_server), port};
+  m_client_thread = std::thread {&Client::start, std::ref(m_client)};
 }
 
 void Peer::stop()
 {
-  is_running = false;
-  server.stop();
-  client.stop();
+  m_is_running = false;
+  m_server.stop();
+  m_client.stop();
 }
 
 int Peer::connect(const std::string& hostname, int port)
 {
-  return client.connect(hostname, port);
+  return m_client.connect(hostname, port);
 }
 
 int Peer::disconnect(int socket_descriptor)
 {
-  return client.disconnect(socket_descriptor);
+  return m_client.disconnect(socket_descriptor);
 }
 
 ssize_t Peer::send(
@@ -53,5 +53,5 @@ ssize_t Peer::send(
   size_t length
 )
 {
-  return client.send(socket_descriptor, message_type, data, length);
+  return m_client.send(socket_descriptor, message_type, data, length);
 }

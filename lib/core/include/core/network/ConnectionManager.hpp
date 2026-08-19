@@ -17,10 +17,10 @@
 class ConnectionManager
 {
 protected:
-  IMessageHandler& message_handler;
-  std::mutex mutex;
-  std::atomic<bool> is_event_running;
-  std::unordered_map<int, std::shared_ptr<Connection>> connections;
+  IMessageHandler& m_message_handler;
+  std::mutex m_mutex;
+  std::atomic<bool> m_is_event_running;
+  std::unordered_map<int, std::shared_ptr<Connection>> m_connections;
 public:
   explicit ConnectionManager(IMessageHandler&);
   ~ConnectionManager();

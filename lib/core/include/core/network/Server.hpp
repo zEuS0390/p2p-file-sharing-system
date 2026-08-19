@@ -12,7 +12,7 @@
 class Server
 {
 private:
-  ServerConnectionManager server_connection_manager;
+  ServerConnectionManager m_server_connection_manager;
   std::thread accept_thread;
   std::thread event_thread;
   bool is_running;

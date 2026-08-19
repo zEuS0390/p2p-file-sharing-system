@@ -16,7 +16,7 @@ ServerConnectionManager::ServerConnectionManager(
   IMessageHandler& message_handler
 ):
   ConnectionManager{message_handler},
-  is_listening{false}
+  m_is_listening{false}
 {
 }
 
@@ -85,23 +85,23 @@ void ServerConnectionManager::initServer(uint16_t port)
       continue;
     }
 
-    listening_socket_descriptors.push_back(socket_descriptor);
+    m_listening_socket_descriptors.push_back(socket_descriptor);
   }
 
   freeaddrinfo(server_addresses);
 
-  if (listening_socket_descriptors.empty())
+  if (m_listening_socket_descriptors.empty())
     throw std::runtime_error("An error has occured for preparing the network addresses");
 
 }
 
 void ServerConnectionManager::startAcceptConnectionLoop()
 {
-  is_listening = true;
+  m_is_listening = true;
 
   std::vector<pollfd> poll_fds;
 
-  for (int socket_descriptor: listening_socket_descriptors)
+  for (int socket_descriptor: m_listening_socket_descriptors)
   {
     pollfd pfd {};
     pfd.fd = socket_descriptor;
@@ -109,7 +109,7 @@ void ServerConnectionManager::startAcceptConnectionLoop()
     poll_fds.push_back(pfd);
   }
 
-  while (is_listening)
+  while (m_is_listening)
   {
     int ready {poll(poll_fds.data(), poll_fds.size(), -1)};
 
@@ -138,9 +138,9 @@ void ServerConnectionManager::startAcceptConnectionLoop()
 
 void ServerConnectionManager::stopAcceptConnectionLoop()
 {
-  std::lock_guard<std::mutex> lock(mutex);
-  is_listening = false;
-  for (int socket_descriptor: listening_socket_descriptors)
+  std::lock_guard<std::mutex> lock(m_mutex);
+  m_is_listening = false;
+  for (int socket_descriptor: m_listening_socket_descriptors)
   {
     shutdown(socket_descriptor, SHUT_RDWR);
     close(socket_descriptor);

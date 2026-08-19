@@ -13,8 +13,8 @@
 class ServerConnectionManager: public ConnectionManager
 {
 private:
-  std::vector<int> listening_socket_descriptors;
-  std::atomic<bool> is_listening;
+  std::vector<int> m_listening_socket_descriptors;
+  std::atomic<bool> m_is_listening;
 public:
   explicit ServerConnectionManager(IMessageHandler&);
   void startAcceptConnectionLoop();

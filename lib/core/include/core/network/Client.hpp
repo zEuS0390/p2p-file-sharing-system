@@ -15,8 +15,8 @@
 class Client
 {
 private:
-  ClientConnectionManager client_connection_manager;
-  std::thread event_thread;
+  ClientConnectionManager m_client_connection_manager;
+  std::thread m_event_thread;
 public:
   explicit Client(IMessageHandler&);
   ~Client();

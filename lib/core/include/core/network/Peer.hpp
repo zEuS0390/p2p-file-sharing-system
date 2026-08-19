@@ -13,12 +13,12 @@
 class Peer
 {
 private:
-  Client client;
-  Server server;
+  Client m_client;
+  Server m_server;
 private:
-  std::thread server_thread;
-  std::thread client_thread;
-  bool is_running;
+  std::thread m_server_thread;
+  std::thread m_client_thread;
+  bool m_is_running;
 public:
   explicit Peer(IMessageHandler&, IMessageHandler&);
   ~Peer();

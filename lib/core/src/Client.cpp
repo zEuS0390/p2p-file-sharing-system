@@ -12,7 +12,7 @@
 
 // Constructor
 Client::Client(IMessageHandler& message_handler):
-  client_connection_manager{message_handler}
+  m_client_connection_manager{message_handler}
 {
 }
 
@@ -79,7 +79,7 @@ int Client::connect(const std::string& hostname, int port)
     if (server_socket_descriptor == -1)
         return -2;
 
-    client_connection_manager.addConnection(
+    m_client_connection_manager.addConnection(
         server_socket_descriptor,
         endpoint);
 
@@ -89,22 +89,22 @@ int Client::connect(const std::string& hostname, int port)
 // Disconnect to the server
 int Client::disconnect(int socket_descriptor)
 {
-  client_connection_manager.removeConnection(socket_descriptor);
+  m_client_connection_manager.removeConnection(socket_descriptor);
   return 0;
 }
 
 ssize_t Client::send(int socket_descriptor, const MessageType& message_type, const char* data, size_t length)
 {
-  return client_connection_manager.send(socket_descriptor, message_type, data, length);
+  return m_client_connection_manager.send(socket_descriptor, message_type, data, length);
 }
 
 void Client::start()
 {
-  event_thread = std::thread{&ClientConnectionManager::runEventLoop, std::ref(client_connection_manager)};
+  m_event_thread = std::thread{&ClientConnectionManager::runEventLoop, std::ref(m_client_connection_manager)};
 }
 
 void Client::stop()
 {
-  client_connection_manager.stopEventLoop();
-  event_thread.join();
+  m_client_connection_manager.stopEventLoop();
+  m_event_thread.join();
 }
