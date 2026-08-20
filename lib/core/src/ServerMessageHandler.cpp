@@ -112,3 +112,4 @@ void ServerMessageHandler::queueMessage(
 
   connection->pollfd.events |= POLLOUT;
 }
+

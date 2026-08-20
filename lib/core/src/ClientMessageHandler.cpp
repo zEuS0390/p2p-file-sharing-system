@@ -80,3 +80,4 @@ void ClientMessageHandler::queueMessage(
 
   connection->pollfd.events |= POLLOUT;
 }
+

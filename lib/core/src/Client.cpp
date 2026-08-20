@@ -108,3 +108,4 @@ void Client::stop()
   m_client_connection_manager.stopEventLoop();
   m_event_thread.join();
 }
+

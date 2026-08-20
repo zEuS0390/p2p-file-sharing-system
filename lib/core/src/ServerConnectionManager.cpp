@@ -146,3 +146,4 @@ void ServerConnectionManager::stopAcceptConnectionLoop()
     close(socket_descriptor);
   }
 }
+
