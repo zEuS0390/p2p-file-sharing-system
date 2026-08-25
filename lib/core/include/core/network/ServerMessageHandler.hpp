@@ -12,12 +12,12 @@
 class ServerMessageHandler: public IMessageHandler
 {
 public:
-  virtual void dispatchMessage(
+  void dispatchMessage(
     std::shared_ptr<Connection>,
     MessageHeader&,
     const char*
   ) override;
-  virtual void queueMessage(
+  void queueMessage(
     std::shared_ptr<Connection>,
     const MessageType&,
     const char* data,
