@@ -1,7 +1,10 @@
 *
 !lib/
+!lib/**
 !src/
+!src/**
 !tests/
+!tests/**
 !.gitignore
 !CMakeLists.txt
 !README.md
