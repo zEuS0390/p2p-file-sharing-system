@@ -13,9 +13,9 @@ class Server
 {
 private:
   ServerConnectionManager m_server_connection_manager;
-  std::thread accept_thread;
-  std::thread event_thread;
-  bool is_running;
+  std::thread m_accept_thread;
+  std::thread m_event_thread;
+  bool m_is_running;
 public:
   explicit Server(IMessageHandler&);
   ~Server();

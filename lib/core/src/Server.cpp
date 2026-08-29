@@ -19,7 +19,7 @@ Server::Server(IMessageHandler& message_handler):
 // Destructor
 Server::~Server()
 {
-  if (is_running)
+  if (m_is_running)
     stop();
 }
 
@@ -27,8 +27,8 @@ Server::~Server()
 void Server::start(uint16_t port)
 {
   m_server_connection_manager.initServer(port);
-  accept_thread = std::thread{&ServerConnectionManager::startAcceptConnectionLoop, std::ref(m_server_connection_manager)};
-  event_thread = std::thread{&ServerConnectionManager::runEventLoop, std::ref(m_server_connection_manager)};
+  m_accept_thread = std::thread{&ServerConnectionManager::startAcceptConnectionLoop, std::ref(m_server_connection_manager)};
+  m_event_thread = std::thread{&ServerConnectionManager::runEventLoop, std::ref(m_server_connection_manager)};
 }
 
 // Stop listening for incoming client conncections
@@ -36,9 +36,9 @@ void Server::stop()
 {
   m_server_connection_manager.stopAcceptConnectionLoop();
   m_server_connection_manager.stopEventLoop();
-  if (accept_thread.joinable())
-    accept_thread.join();
-  if (event_thread.joinable())
-    event_thread.join();
+  if (m_accept_thread.joinable())
+    m_accept_thread.join();
+  if (m_event_thread.joinable())
+    m_event_thread.join();
 }
 
