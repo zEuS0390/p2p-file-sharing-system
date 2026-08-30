@@ -1,4 +1,3 @@
-#include <string_view>
 #include <unordered_map>
 #include <sys/socket.h>
 #include <sys/poll.h>
@@ -86,7 +85,6 @@ void ConnectionManager::runEventLoop()
   while (m_is_event_running)
   {
     std::vector<pollfd> connection_pollfds_snapshot;
-
     {
       std::lock_guard<std::mutex> lock(m_mutex);
       connection_pollfds_snapshot.reserve(m_connections.size());
@@ -99,7 +97,6 @@ void ConnectionManager::runEventLoop()
       connection_pollfds_snapshot.size(),
       10
     );
-
     if (ready <= 0)
       continue;
 
@@ -123,10 +120,23 @@ void ConnectionManager::runEventLoop()
           connection->pollfd.events &= ~POLLOUT;
       }
 
-      if (connection_pollfd.revents & (POLLHUP | POLLERR | POLLNVAL))
+      if (connection_pollfd.revents & POLLHUP)
       {
-        std::cout << "socket error or hangup." << std::endl;
-        std::cout.flush();
+        std::cout << "socket hangup." << std::endl;
+        removeConnection(connection->pollfd.fd);
+        continue;
+      }
+
+      if (connection_pollfd.revents & POLLERR)
+      {
+        std::cout << "socket error." << std::endl;
+        removeConnection(connection->pollfd.fd);
+        continue;
+      }
+
+      if (connection_pollfd.revents & POLLNVAL)
+      {
+        std::cout << "invalid or closed socket descriptor." << std::endl;
         removeConnection(connection->pollfd.fd);
         continue;
       }
@@ -148,7 +158,6 @@ void ConnectionManager::runEventLoop()
         else if (recv_status == 0)
         {
           std::cout << "disconnected cleanly." << std::endl;
-          std::cout.flush();
           removeConnection(connection->pollfd.fd);
           continue;
         }
