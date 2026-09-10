@@ -3,7 +3,6 @@
 #include <fstream>
 #include <string>
 #include <iostream>
-#include <memory>
 #include <ios>
 
 #include "core/network/ServerMessageHandler.hpp"
@@ -13,7 +12,7 @@
 #include "core/types/Connection.hpp"
 
 void ServerMessageHandler::dispatchMessage(
- std::shared_ptr<Connection> connection,
+ Connection& connection,
  MessageHeader& message_header,
  const char* data
 )
@@ -84,7 +83,7 @@ void ServerMessageHandler::dispatchMessage(
 }
 
 void ServerMessageHandler::queueMessage(
-  std::shared_ptr<Connection> connection,
+  Connection& connection,
   const MessageType& message_type,
   const char* data,
   size_t length
@@ -94,22 +93,20 @@ void ServerMessageHandler::queueMessage(
   message_header.type = message_type;
   message_header.payload_size = length;
 
-  size_t old_size {connection->send_buffer.size()};
+  size_t old_size {connection.send_buffer.size()};
 
-  connection->send_buffer.resize(old_size + sizeof(message_header) + length);
+  connection.send_buffer.resize(old_size + sizeof(message_header) + length);
 
   std::memcpy(
-    connection->send_buffer.data() + old_size,
+    connection.send_buffer.data() + old_size,
     &message_header,
     sizeof(message_header)
   );
 
   std::memcpy(
-    connection->send_buffer.data() + old_size + sizeof(message_header),
+    connection.send_buffer.data() + old_size + sizeof(message_header),
     data,
     length
   );
-
-  connection->pollfd.events |= POLLOUT;
 }
 

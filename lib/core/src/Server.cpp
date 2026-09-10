@@ -26,6 +26,7 @@ Server::~Server()
 // Listen for incoming client connections
 void Server::start(uint16_t port)
 {
+  m_is_running = true;
   m_server_connection_manager.initServer(port);
   m_accept_thread = std::thread{&ServerConnectionManager::startAcceptConnectionLoop, std::ref(m_server_connection_manager)};
   m_event_thread = std::thread{&ServerConnectionManager::runEventLoop, std::ref(m_server_connection_manager)};
@@ -34,6 +35,7 @@ void Server::start(uint16_t port)
 // Stop listening for incoming client conncections
 void Server::stop()
 {
+  m_is_running = false;
   m_server_connection_manager.stopAcceptConnectionLoop();
   m_server_connection_manager.stopEventLoop();
   if (m_accept_thread.joinable())

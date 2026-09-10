@@ -1,8 +1,6 @@
 #include <iostream>
 #include <cstring>
-#include <memory>
 #include <string>
-#include <sys/poll.h>
 
 #include "core/network/ClientMessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
@@ -10,7 +8,7 @@
 #include "core/types/Connection.hpp"
 
 void ClientMessageHandler::dispatchMessage(
- std::shared_ptr<Connection> connection,
+ Connection& connection,
  MessageHeader& message_header,
  const char* data
 )
@@ -52,7 +50,7 @@ void ClientMessageHandler::dispatchMessage(
 }
 
 void ClientMessageHandler::queueMessage(
-  std::shared_ptr<Connection> connection,
+  Connection& connection,
   const MessageType& message_type,
   const char* data,
   size_t length
@@ -62,22 +60,20 @@ void ClientMessageHandler::queueMessage(
   message_header.type = message_type;
   message_header.payload_size = length;
 
-  size_t old_size {connection->send_buffer.size()};
+  size_t old_size {connection.send_buffer.size()};
 
-  connection->send_buffer.resize(old_size + sizeof(message_header) + length);
+  connection.send_buffer.resize(old_size + sizeof(message_header) + length);
 
   std::memcpy(
-    connection->send_buffer.data() + old_size,
+    connection.send_buffer.data() + old_size,
     &message_header,
     sizeof(message_header)
   );
 
   std::memcpy(
-    connection->send_buffer.data() + old_size + sizeof(message_header),
+    connection.send_buffer.data() + old_size + sizeof(message_header),
     data,
     length
   );
-
-  connection->pollfd.events |= POLLOUT;
 }
 

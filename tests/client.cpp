@@ -7,7 +7,6 @@
 #include <ios>
 
 #include "core/network/ClientMessageHandler.hpp"
-#include "core/types/MessageHeaders.hpp"
 #include "core/types/MessageType.hpp"
 #include "core/network/Client.hpp"
 
@@ -16,12 +15,16 @@ int main(int argc, char* argv[])
 {
   if (argc != 5)
   {
-    std::cerr << "Usage: " << argv[0] << " <hostname> <port> <speed_milliseconds> <file_path>" << std::endl;
+    std::cerr << "Usage: "
+              << argv[0]
+              << " <hostname> <port> <speed_milliseconds> <file_path>"
+              << std::endl;
     return 1;
   }
 
   ClientMessageHandler client_message_handler;
   Client client {client_message_handler};
+
   int server_socket_descriptor = client.connect(argv[1], atoi(argv[2]));
 
   if (server_socket_descriptor < 0)
@@ -46,38 +49,15 @@ int main(int argc, char* argv[])
   char ch;
   while (file.get(ch))
   {
-    MessageHeader message_header;
-    message_header.type = MessageType::MESSAGE;
-    message_header.payload_size = 1;
-
     ssize_t send_status;
-
     send_status = client.send(
       server_socket_descriptor,
       MessageType::MESSAGE,
-      reinterpret_cast<char*>(&message_header),
-      sizeof(message_header)
+      std::string(1, ch).c_str(),
+      1
     );
-
     if (send_status < 0)
-    {
       std::cout << "Error sending the message to server." << std::endl;
-      break;
-    }
-
-    send_status = client.send(
-        server_socket_descriptor,
-        MessageType::MESSAGE,
-        std::string(1, ch).c_str(),
-        message_header.payload_size
-    );
-
-    if (send_status < 0)
-    {
-      std::cout << "Error sending the message to server." << std::endl;
-      break;
-    }
-
     std::this_thread::sleep_for(std::chrono::milliseconds(std::stoi(argv[3])));
   }
 

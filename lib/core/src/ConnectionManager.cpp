@@ -1,200 +1,394 @@
 #include <unordered_map>
+#include <sys/eventfd.h>
 #include <sys/socket.h>
+#include <sys/epoll.h>
 #include <sys/poll.h>
+#include <algorithm>
+#include <stdexcept>
 #include <iostream>
 #include <unistd.h>
 #include <cstring>
 #include <netdb.h>
+#include <utility>
+#include <cstdio>
 #include <memory>
 #include <cerrno>
 #include <mutex>
+#include <array>
+#include <queue>
 
 #include "core/network/ConnectionManager.hpp"
 #include "core/network/IMessageHandler.hpp"
+#include "core/types/CommandType.hpp"
 #include "core/types/Connection.hpp"
 #include "core/types/MessageHeaders.hpp"
+#include "core/types/EventCommand.hpp"
 
 // Constructor
 ConnectionManager::ConnectionManager(IMessageHandler& message_handler):
   m_message_handler{message_handler},
-  m_is_event_running{false}
+  m_is_event_running{false},
+  m_epfd{-1},
+  m_command_fd{-1}
 {
+  m_epfd.store(epoll_create1(0));
+  if (m_epfd.load() == -1)
+    throw std::runtime_error("couldn't create epoll instance.");
+  m_command_fd = eventfd(0,EFD_NONBLOCK | EFD_CLOEXEC);
+  if (m_command_fd == -1)
+    throw std::runtime_error("eventfd error.");
+
+  epoll_event command_event {};
+  command_event.events = EPOLLIN;
+  command_event.data.fd = m_command_fd;
+
+  if (epoll_ctl(m_epfd, EPOLL_CTL_ADD, m_command_fd, &command_event) == -1)
+  {
+    close(m_command_fd);
+    throw std::runtime_error("couldn't add command fd to epoll.");
+  }
 }
 
 ConnectionManager::~ConnectionManager()
 {
-  // Close the sockets of all connected clients
-  for (std::pair<const int, std::shared_ptr<Connection>>& connection: m_connections)
-  {
-    std::lock_guard<std::mutex> lock(connection.second->mutex);
-    shutdown(connection.second->pollfd.fd, SHUT_RDWR);
-    close(connection.second->pollfd.fd);
-  }
   m_connections.clear();
+  close(m_epfd.load());
 }
 
 void ConnectionManager::parseIncomingMessage(
-  std::shared_ptr<Connection> connection
+  Connection& connection
 )
 {
   while (true)
   {
     // Read the header
-    if (connection->reading_header)
+    if (connection.reading_header)
     {
-      if (connection->recv_buffer.size() - connection->recv_offset < sizeof(MessageHeader))
+      if (connection.recv_buffer.size() - connection.recv_offset < sizeof(MessageHeader))
         return;
 
       std::memcpy(
-        &connection->current_header,
-        connection->recv_buffer.data() + connection->recv_offset,
+        &connection.current_header,
+        connection.recv_buffer.data() + connection.recv_offset,
         sizeof(MessageHeader)
       );
 
-      connection->recv_offset += sizeof(MessageHeader);
-      connection->reading_header = false;
+      connection.recv_offset += sizeof(MessageHeader);
+      connection.reading_header = false;
     }
 
     // Read the payload
-    if (!connection->reading_header)
+    if (!connection.reading_header)
     {
-      if (connection->recv_buffer.size() - connection->recv_offset < connection->current_header.payload_size)
+      if (connection.recv_buffer.size() - connection.recv_offset < connection.current_header.payload_size)
         return;
 
       m_message_handler.dispatchMessage(
         connection,
-        connection->current_header,
-        connection->recv_buffer.data() + connection->recv_offset
+        connection.current_header,
+        connection.recv_buffer.data() + connection.recv_offset
       );
 
-      connection->recv_offset += connection->current_header.payload_size;
-      connection->reading_header = true;
+      updateEpollEvents(connection);
+
+      connection.recv_offset += connection.current_header.payload_size;
+      connection.reading_header = true;
     }
 
-    if (connection->recv_offset == connection->recv_buffer.size())
+    if (connection.recv_offset == connection.recv_buffer.size())
     {
-      connection->recv_buffer.clear();
-      connection->recv_offset = 0;
+      connection.recv_buffer.clear();
+      connection.recv_offset = 0;
     }
+  }
+}
+
+void ConnectionManager::processCommands() 
+{
+  std::queue<EventCommand> event_commands;
+
+  {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    std::swap(event_commands, m_event_commands);
+  }
+
+  while (!event_commands.empty())
+  {
+    EventCommand event_command {std::move(event_commands.front())};
+    event_commands.pop();
+
+    switch (event_command.m_type)
+    {
+      case CommandType::AddConnection:
+      {
+          if (event_command.m_payload.size() < sizeof(Endpoint))
+              continue;
+
+          Endpoint endpoint{};
+
+          std::memcpy(
+              &endpoint,
+              event_command.m_payload.data(),
+              sizeof(Endpoint)
+          );
+
+          int socket_descriptor = event_command.m_socket_descriptor;
+
+          std::unique_ptr<Connection> connection{
+              std::make_unique<Connection>()
+          };
+
+          connection->endpoint = endpoint;
+          connection->socket_descriptor = socket_descriptor;
+
+          epoll_event connection_epoll_event{};
+          connection_epoll_event.events = EPOLLIN;
+          connection_epoll_event.data.fd = socket_descriptor;
+
+          if (epoll_ctl(
+                m_epfd,
+                EPOLL_CTL_ADD,
+                socket_descriptor,
+                &connection_epoll_event
+              ) == -1)
+          {
+              std::cout
+                  << "couldn't add file descriptor to epoll instance."
+                  << std::endl;
+
+              shutdown(socket_descriptor, SHUT_RDWR);
+              close(socket_descriptor);
+              continue;
+          }
+
+          m_connections.emplace(
+              socket_descriptor,
+              std::move(connection)
+          );
+
+          break;
+      }
+      case CommandType::SendMessage:
+      {
+        auto it = m_connections.find(event_command.m_socket_descriptor);
+
+        if (it == m_connections.end())
+          continue;
+
+        Connection& conn{*it->second};
+
+        if (event_command.m_payload.size() < sizeof(MessageType))
+          continue;
+
+        MessageType message_type;
+
+        std::memcpy(
+          &message_type,
+          event_command.m_payload.data(),
+          sizeof(MessageType)
+        );
+
+        const char* data =
+          event_command.m_payload.data() + sizeof(MessageType);
+
+        size_t length =
+          event_command.m_payload.size() - sizeof(MessageType);
+
+        m_message_handler.queueMessage(
+          conn,
+          message_type,
+          data,
+          length
+        );
+
+        updateEpollEvents(conn);
+
+        break;
+      }
+      case CommandType::RemoveConnection:
+      {
+        auto it = m_connections.find(event_command.m_socket_descriptor);
+
+        if (it == m_connections.end())
+          continue;
+
+        Connection& conn{*it->second};
+
+        epoll_ctl(
+            m_epfd,
+            EPOLL_CTL_DEL,
+            conn.socket_descriptor,
+            nullptr
+        );
+
+        shutdown(conn.socket_descriptor, SHUT_RDWR);
+        close(conn.socket_descriptor);
+
+        m_connections.erase(it);
+
+        break;
+      }
+      default:
+        break;
+    }
+  }
+}
+
+void ConnectionManager::updateEpollEvents(Connection& conn)
+{
+  epoll_event ev{};
+  ev.events = EPOLLIN;
+
+  if (conn.send_offset < conn.send_buffer.size())
+    ev.events |= EPOLLOUT;
+
+  ev.data.fd = conn.socket_descriptor;
+
+  if (epoll_ctl(
+    m_epfd,
+    EPOLL_CTL_MOD,
+    conn.socket_descriptor,
+    &ev) == -1)
+  {
+    perror("epoll_ctl MOD");
   }
 }
 
 void ConnectionManager::runEventLoop()
 {
-  m_is_event_running = true;
-  while (m_is_event_running)
+  m_is_event_running.store(true);
+  while (m_is_event_running.load())
   {
-    std::vector<pollfd> connection_pollfds_snapshot;
+    int ready {epoll_wait(m_epfd, m_epoll_events.data(), MAX_EVENTS, -1)};
+
+    if (ready == -1)
     {
-      std::lock_guard<std::mutex> lock(m_mutex);
-      connection_pollfds_snapshot.reserve(m_connections.size());
-      for (const auto& it: m_connections)
-        connection_pollfds_snapshot.push_back(it.second->pollfd);
+      if (errno == EINTR)
+        continue;
+      perror("epoll_wait");
+      break;
     }
 
-    int ready = poll(
-      connection_pollfds_snapshot.data(),
-      connection_pollfds_snapshot.size(),
-      10
-    );
-    if (ready <= 0)
-      continue;
-
-    for (auto connection_pollfd: connection_pollfds_snapshot)
+    for (int i {0}; i < ready; ++i)
     {
-      std::shared_ptr<Connection> connection;
+      epoll_event& event {m_epoll_events.at(i)};
+      int fd {event.data.fd};
 
+      if (fd == m_command_fd)
       {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        auto it {m_connections.find(connection_pollfd.fd)};
+        uint64_t value;
+        if (read(m_command_fd, &value, sizeof(value)) == -1)
+        {
+          if (errno != EAGAIN && errno != EWOULDBLOCK)
+            perror("read command fd");
+        }
+        processCommands();
+        continue;
+      }
+
+      std::unordered_map<int, std::unique_ptr<Connection>>::iterator it;
+      {
+        it = m_connections.find(fd);
         if (it == m_connections.end())
           continue;
-        connection = it->second;
       }
 
-      {
-        std::lock_guard<std::mutex> lock(connection->mutex);
-        if (connection->send_offset < connection->send_buffer.size())
-          connection->pollfd.events |= POLLOUT;
-        else
-          connection->pollfd.events &= ~POLLOUT;
-      }
+      Connection& conn {*it->second};
 
-      if (connection_pollfd.revents & POLLHUP)
+      if (event.events & EPOLLIN)
       {
-        std::cout << "socket hangup." << std::endl;
-        removeConnection(connection->pollfd.fd);
-        continue;
-      }
-
-      if (connection_pollfd.revents & POLLERR)
-      {
-        std::cout << "socket error." << std::endl;
-        removeConnection(connection->pollfd.fd);
-        continue;
-      }
-
-      if (connection_pollfd.revents & POLLNVAL)
-      {
-        std::cout << "invalid or closed socket descriptor." << std::endl;
-        removeConnection(connection->pollfd.fd);
-        continue;
-      }
-
-      if (connection_pollfd.revents & POLLIN)
-      {
-        char buffer[4096] {};
-        ssize_t recv_status = recv(connection_pollfd.fd, buffer, sizeof(buffer)-1, 0);
+        char receivedBuffer[4096];
+        ssize_t recv_status {recv(fd, receivedBuffer, sizeof(receivedBuffer)-1, 0)};
         if (recv_status > 0)
         {
-          std::lock_guard<std::mutex> lock(connection->mutex);
-          connection->recv_buffer.insert(
-              connection->recv_buffer.end(),
-              buffer,
-              buffer + recv_status
+          conn.recv_buffer.insert(
+            conn.recv_buffer.end(),
+            receivedBuffer,
+            receivedBuffer + recv_status
           );
-          parseIncomingMessage(connection);
+
+          parseIncomingMessage(conn);
         }
         else if (recv_status == 0)
         {
           std::cout << "disconnected cleanly." << std::endl;
-          removeConnection(connection->pollfd.fd);
+
+          epoll_ctl(
+            m_epfd,
+            EPOLL_CTL_DEL,
+            conn.socket_descriptor,
+            nullptr
+          );
+
+          shutdown(conn.socket_descriptor, SHUT_RDWR);
+          close(conn.socket_descriptor);
+
+          m_connections.erase(it);
+
           continue;
         }
         else
         {
-          if (errno == EAGAIN || errno == EWOULDBLOCK)
+          if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+          {
+            removeConnection(fd);
             continue;
-          if (errno == EINTR)
-            continue;
-          removeConnection(connection->pollfd.fd);
-          continue;
+          }
         }
       }
-
-      if (connection_pollfd.revents & POLLOUT)
+      if (event.events & EPOLLOUT)
       {
-        std::lock_guard<std::mutex> lock(connection->mutex);
-        size_t remaining {connection->send_buffer.size() - connection->send_offset};
-        if (remaining > 0)
+        while (conn.send_offset < conn.send_buffer.size())
         {
-          ssize_t bytes_sent = ::send(
-            connection->pollfd.fd,
-            connection->send_buffer.data() + connection->send_offset,
-            remaining,
-            0
-          );
-          if (bytes_sent > 0)
-            connection->send_offset += bytes_sent;
-          else if (bytes_sent == 0)
+          size_t remaining {conn.send_buffer.size() - conn.send_offset};
+
+          ssize_t send_status {
+            ::send(
+              fd,
+              conn.send_buffer.data() + conn.send_offset,
+              remaining,
+              0
+            )
+          };
+
+          if (send_status > 0)
+          {
+            conn.send_offset += send_status;
             continue;
+          }
+
+          if (send_status == -1)
+          {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+              break;
+
+            if (errno == EINTR)
+              continue;
+
+            std::cout << "send error." << std::endl;
+            removeConnection(fd);
+            break;
+          }
         }
-        if (connection->send_offset == connection->send_buffer.size())
+
+        if (conn.send_offset == conn.send_buffer.size())
         {
-          connection->send_buffer.clear();
-          connection->send_offset = 0;
-          connection->pollfd.events &= ~POLLOUT;
+          conn.send_buffer.clear();
+          conn.send_offset = 0;
+          updateEpollEvents(conn);
         }
+      }
+      if (event.events & EPOLLHUP)
+      {
+        std::cout << "socket hangup." << std::endl;
+        removeConnection(fd);
+        continue;
+      }
+      if (event.events & EPOLLERR)
+      {
+        std::cout << "socket error." << std::endl;
+        removeConnection(fd);
+        continue;
       }
     }
   }
@@ -202,42 +396,59 @@ void ConnectionManager::runEventLoop()
 
 void ConnectionManager::stopEventLoop()
 {
-  m_is_event_running = false;
+  m_is_event_running.store(false);
+
+  uint64_t value{1};
+
+  if (write(m_command_fd, &value, sizeof(value)) == -1)
+  {
+    if (errno != EAGAIN && errno != EWOULDBLOCK)
+      perror("write command fd");
+  }
 }
 
 void ConnectionManager::addConnection(
-  int socket_desrciptor,
+  int socket_descriptor,
   const Endpoint& endpoint
 )
 {
-  std::lock_guard<std::mutex> lock1(m_mutex);
+  {
+    std::lock_guard<std::mutex> lock(m_mutex);
 
-  pollfd conn_pollfd;
-  conn_pollfd.fd = socket_desrciptor;
-  conn_pollfd.events = POLLIN;
-  conn_pollfd.revents = 0;
+    std::vector<char> payload(sizeof(Endpoint));
+    std::memcpy(payload.data(), &endpoint, sizeof(Endpoint));
 
-  // Add the socket address information in the connections
-  std::shared_ptr<Connection> connection = std::make_shared<Connection>();
-  connection->endpoint = endpoint;
-  connection->pollfd = conn_pollfd;
-  m_connections[socket_desrciptor] = connection;
+    m_event_commands.emplace(
+      CommandType::AddConnection,
+      socket_descriptor,
+      payload
+    );
+  }
+
+  uint64_t value{1};
+  if (write(m_command_fd, &value, sizeof(value)) == -1)
+  {
+    if (errno != EAGAIN && errno != EWOULDBLOCK)
+      perror("write command fd");
+  }
+  return;
 }
 
 void ConnectionManager::removeConnection(int socket_descriptor)
 {
-  std::lock_guard<std::mutex> lock1(m_mutex);
-  std::shared_ptr<Connection> connection;
-  std::unordered_map<int, std::shared_ptr<Connection>>::iterator it {
-    m_connections.find(socket_descriptor)
-  };
-  if (it == m_connections.end())
-    return;
-  connection = it->second;
-  std::lock_guard<std::mutex> lock2(connection->mutex);
-  shutdown(connection->pollfd.fd, SHUT_RDWR);
-  close(connection->pollfd.fd);
-  m_connections.erase(connection->pollfd.fd);
+  {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_event_commands.emplace(
+      CommandType::RemoveConnection,
+      socket_descriptor
+    );
+  }
+  uint64_t value{1};
+  if (write(m_command_fd, &value, sizeof(value)) == -1)
+  {
+    if (errno != EAGAIN && errno != EWOULDBLOCK)
+      perror("write command fd");
+  }
 }
 
 ssize_t ConnectionManager::send(
@@ -247,20 +458,37 @@ ssize_t ConnectionManager::send(
   size_t length
 )
 {
-  std::shared_ptr<Connection> connection;
+  std::vector<char> payload(sizeof(MessageType) + length);
+
+  std::memcpy(
+    payload.data(),
+    &message_type,
+    sizeof(MessageType)
+  );
+
+  std::memcpy(
+    payload.data() + sizeof(MessageType),
+    data,
+    length
+  );
+
   {
     std::lock_guard<std::mutex> lock(m_mutex);
-    auto it {m_connections.find(socket_descriptor)};
-    if (it == m_connections.end())
-      return -1;
-    connection = it->second;
+
+    m_event_commands.emplace(
+      CommandType::SendMessage,
+      socket_descriptor,
+      payload
+    );
   }
+
+  uint64_t value{1};
+  if (write(m_command_fd, &value, sizeof(value)) == -1)
   {
-    std::lock(m_mutex, connection->mutex);
-    std::lock_guard<std::mutex> lock1(m_mutex, std::adopt_lock);
-    std::lock_guard<std::mutex> lock2(connection->mutex, std::adopt_lock);
-    m_message_handler.queueMessage(connection, message_type, data, length);
+    if (errno != EAGAIN && errno != EWOULDBLOCK)
+      perror("write command fd");
   }
+
   return 0;
 }
 
