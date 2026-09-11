@@ -31,6 +31,9 @@ protected:
   std::unordered_map<int, std::unique_ptr<Connection> > m_connections;
   std::array<epoll_event, MAX_EVENTS> m_epoll_events;
 private:
+  void processCommand(AddConnectionEventCommand&);
+  void processCommand(RemoveConnectionEventCommand&);
+  void processCommand(SendMessageEventCommand&);
   void processCommands();
   void updateEpollEvents(Connection&);
   void parseIncomingMessage(Connection&);

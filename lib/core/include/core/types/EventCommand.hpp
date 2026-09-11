@@ -1,25 +1,34 @@
 #ifndef CORE_TYPES_EVENT_COMMAND_HPP
 #define CORE_TYPES_EVENT_COMMAND_HPP
 
+#include <variant>
 #include <vector>
 
-#include "core/types/CommandType.hpp"
+#include "core/types/Endpoint.hpp"
+#include "core/types/MessageType.hpp"
 
-struct EventCommand
+struct AddConnectionEventCommand
 {
-  CommandType m_type;
-  int m_socket_descriptor;
-  std::vector<char> m_payload;
-  EventCommand(
-    const CommandType& type,
-    int socket_descriptor = -1,
-    const std::vector<char>& payload = {}
-  ):
-    m_type{type},
-    m_socket_descriptor{socket_descriptor},
-    m_payload{payload}
-  {
-  }
+  int m_socket_descriptor {-1};
+  Endpoint endpoint {};
 };
+
+struct RemoveConnectionEventCommand
+{
+  int m_socket_descriptor {-1};
+};
+
+struct SendMessageEventCommand
+{
+  int m_socket_descriptor {-1};
+  MessageType m_message_type {};
+  std::vector<char> m_payload;
+};
+
+using EventCommand = std::variant<
+  AddConnectionEventCommand,
+  RemoveConnectionEventCommand,
+  SendMessageEventCommand
+>;
 
 #endif

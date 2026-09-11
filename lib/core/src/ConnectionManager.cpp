@@ -19,7 +19,6 @@
 
 #include "core/network/ConnectionManager.hpp"
 #include "core/network/IMessageHandler.hpp"
-#include "core/types/CommandType.hpp"
 #include "core/types/Connection.hpp"
 #include "core/types/MessageHeaders.hpp"
 #include "core/types/EventCommand.hpp"
@@ -103,6 +102,82 @@ void ConnectionManager::parseIncomingMessage(
   }
 }
 
+void ConnectionManager::processCommand(AddConnectionEventCommand& event_command)
+{
+  std::unique_ptr<Connection> connection{
+      std::make_unique<Connection>()
+  };
+
+  connection->endpoint = event_command.endpoint;
+  connection->socket_descriptor = event_command.m_socket_descriptor;
+
+  epoll_event connection_epoll_event{};
+  connection_epoll_event.events = EPOLLIN;
+  connection_epoll_event.data.fd = event_command.m_socket_descriptor;
+
+  if (epoll_ctl(
+        m_epfd,
+        EPOLL_CTL_ADD,
+        event_command.m_socket_descriptor,
+        &connection_epoll_event
+      ) == -1)
+  {
+      std::cout
+          << "couldn't add file descriptor to epoll instance."
+          << std::endl;
+
+      shutdown(event_command.m_socket_descriptor, SHUT_RDWR);
+      close(event_command.m_socket_descriptor);
+      return;
+  }
+
+  m_connections.emplace(
+      event_command.m_socket_descriptor,
+      std::move(connection)
+  );
+}
+
+void ConnectionManager::processCommand(RemoveConnectionEventCommand& event_command)
+{
+  auto it = m_connections.find(event_command.m_socket_descriptor);
+
+  if (it == m_connections.end())
+    return;
+
+  Connection& conn{*it->second};
+
+  epoll_ctl(
+      m_epfd,
+      EPOLL_CTL_DEL,
+      conn.socket_descriptor,
+      nullptr
+  );
+
+  shutdown(conn.socket_descriptor, SHUT_RDWR);
+  close(conn.socket_descriptor);
+
+  m_connections.erase(it);
+}
+
+void ConnectionManager::processCommand(SendMessageEventCommand& event_command)
+{
+  auto it = m_connections.find(event_command.m_socket_descriptor);
+
+  if (it == m_connections.end())
+    return;
+
+  Connection& conn{*it->second};
+
+  m_message_handler.queueMessage(
+    conn,
+    event_command.m_message_type,
+    event_command.m_payload.data(),
+    event_command.m_payload.size()
+  );
+
+  updateEpollEvents(conn);
+}
+
 void ConnectionManager::processCommands() 
 {
   std::queue<EventCommand> event_commands;
@@ -117,120 +192,13 @@ void ConnectionManager::processCommands()
     EventCommand event_command {std::move(event_commands.front())};
     event_commands.pop();
 
-    switch (event_command.m_type)
-    {
-      case CommandType::AddConnection:
+    std::visit(
+      [&](auto& command)
       {
-          if (event_command.m_payload.size() < sizeof(Endpoint))
-              continue;
-
-          Endpoint endpoint{};
-
-          std::memcpy(
-              &endpoint,
-              event_command.m_payload.data(),
-              sizeof(Endpoint)
-          );
-
-          int socket_descriptor = event_command.m_socket_descriptor;
-
-          std::unique_ptr<Connection> connection{
-              std::make_unique<Connection>()
-          };
-
-          connection->endpoint = endpoint;
-          connection->socket_descriptor = socket_descriptor;
-
-          epoll_event connection_epoll_event{};
-          connection_epoll_event.events = EPOLLIN;
-          connection_epoll_event.data.fd = socket_descriptor;
-
-          if (epoll_ctl(
-                m_epfd,
-                EPOLL_CTL_ADD,
-                socket_descriptor,
-                &connection_epoll_event
-              ) == -1)
-          {
-              std::cout
-                  << "couldn't add file descriptor to epoll instance."
-                  << std::endl;
-
-              shutdown(socket_descriptor, SHUT_RDWR);
-              close(socket_descriptor);
-              continue;
-          }
-
-          m_connections.emplace(
-              socket_descriptor,
-              std::move(connection)
-          );
-
-          break;
-      }
-      case CommandType::SendMessage:
-      {
-        auto it = m_connections.find(event_command.m_socket_descriptor);
-
-        if (it == m_connections.end())
-          continue;
-
-        Connection& conn{*it->second};
-
-        if (event_command.m_payload.size() < sizeof(MessageType))
-          continue;
-
-        MessageType message_type;
-
-        std::memcpy(
-          &message_type,
-          event_command.m_payload.data(),
-          sizeof(MessageType)
-        );
-
-        const char* data =
-          event_command.m_payload.data() + sizeof(MessageType);
-
-        size_t length =
-          event_command.m_payload.size() - sizeof(MessageType);
-
-        m_message_handler.queueMessage(
-          conn,
-          message_type,
-          data,
-          length
-        );
-
-        updateEpollEvents(conn);
-
-        break;
-      }
-      case CommandType::RemoveConnection:
-      {
-        auto it = m_connections.find(event_command.m_socket_descriptor);
-
-        if (it == m_connections.end())
-          continue;
-
-        Connection& conn{*it->second};
-
-        epoll_ctl(
-            m_epfd,
-            EPOLL_CTL_DEL,
-            conn.socket_descriptor,
-            nullptr
-        );
-
-        shutdown(conn.socket_descriptor, SHUT_RDWR);
-        close(conn.socket_descriptor);
-
-        m_connections.erase(it);
-
-        break;
-      }
-      default:
-        break;
-    }
+        processCommand(command);
+      },
+      event_command
+    );
   }
 }
 
@@ -414,14 +382,11 @@ void ConnectionManager::addConnection(
 {
   {
     std::lock_guard<std::mutex> lock(m_mutex);
-
-    std::vector<char> payload(sizeof(Endpoint));
-    std::memcpy(payload.data(), &endpoint, sizeof(Endpoint));
-
-    m_event_commands.emplace(
-      CommandType::AddConnection,
-      socket_descriptor,
-      payload
+    m_event_commands.push(
+      AddConnectionEventCommand{
+        socket_descriptor,
+        endpoint
+      }
     );
   }
 
@@ -438,9 +403,10 @@ void ConnectionManager::removeConnection(int socket_descriptor)
 {
   {
     std::lock_guard<std::mutex> lock(m_mutex);
-    m_event_commands.emplace(
-      CommandType::RemoveConnection,
-      socket_descriptor
+    m_event_commands.push(
+      RemoveConnectionEventCommand{
+        socket_descriptor
+      }
     );
   }
   uint64_t value{1};
@@ -458,27 +424,25 @@ ssize_t ConnectionManager::send(
   size_t length
 )
 {
-  std::vector<char> payload(sizeof(MessageType) + length);
+  std::vector<char> payload(length);
 
-  std::memcpy(
-    payload.data(),
-    &message_type,
-    sizeof(MessageType)
-  );
+  // std::memcpy(
+  //   payload.data(),
+  //   &message_type,
+  //   sizeof(MessageType)
+  // );
 
-  std::memcpy(
-    payload.data() + sizeof(MessageType),
-    data,
-    length
-  );
+  std::memcpy(payload.data(), data, length);
 
   {
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    m_event_commands.emplace(
-      CommandType::SendMessage,
-      socket_descriptor,
-      payload
+    m_event_commands.push(
+      SendMessageEventCommand{
+        socket_descriptor,
+        message_type,
+        std::move(payload)
+      }
     );
   }
 
