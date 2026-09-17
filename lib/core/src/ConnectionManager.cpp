@@ -218,7 +218,7 @@ void ConnectionManager::updateEpollEvents(Connection& conn)
     conn.socket_descriptor,
     &ev) == -1)
   {
-    perror("epoll_ctl MOD");
+    std::cerr << "epoll_ctl MOD" << std::endl;
   }
 }
 
@@ -233,7 +233,7 @@ void ConnectionManager::runEventLoop()
     {
       if (errno == EINTR)
         continue;
-      perror("epoll_wait");
+      std::cerr << "epoll_wait" << std::endl;
       break;
     }
 
@@ -248,7 +248,7 @@ void ConnectionManager::runEventLoop()
         if (read(m_command_fd, &value, sizeof(value)) == -1)
         {
           if (errno != EAGAIN && errno != EWOULDBLOCK)
-            perror("read command fd");
+            std::cerr << "read command fd" << std::endl;
         }
         processCommands();
         continue;
@@ -371,7 +371,7 @@ void ConnectionManager::stopEventLoop()
   if (write(m_command_fd, &value, sizeof(value)) == -1)
   {
     if (errno != EAGAIN && errno != EWOULDBLOCK)
-      perror("write command fd");
+      std::cerr << "write command fd" << std::endl;
   }
 }
 
@@ -394,7 +394,7 @@ void ConnectionManager::addConnection(
   if (write(m_command_fd, &value, sizeof(value)) == -1)
   {
     if (errno != EAGAIN && errno != EWOULDBLOCK)
-      perror("write command fd");
+      std::cerr << "write command fd" << std::endl;
   }
   return;
 }
@@ -413,7 +413,7 @@ void ConnectionManager::removeConnection(int socket_descriptor)
   if (write(m_command_fd, &value, sizeof(value)) == -1)
   {
     if (errno != EAGAIN && errno != EWOULDBLOCK)
-      perror("write command fd");
+      std::cerr << "write command fd" << std::endl;
   }
 }
 
@@ -444,7 +444,7 @@ ssize_t ConnectionManager::send(
   if (write(m_command_fd, &value, sizeof(value)) == -1)
   {
     if (errno != EAGAIN && errno != EWOULDBLOCK)
-      perror("write command fd");
+      std::cerr << "write command fd" << std::endl;
   }
 
   return 0;
