@@ -426,12 +426,6 @@ ssize_t ConnectionManager::send(
 {
   std::vector<char> payload(length);
 
-  // std::memcpy(
-  //   payload.data(),
-  //   &message_type,
-  //   sizeof(MessageType)
-  // );
-
   std::memcpy(payload.data(), data, length);
 
   {
