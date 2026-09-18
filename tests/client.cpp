@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
     char ch;
     while (file.get(ch) && is_running.load())
     {
-      ssize_t send_status;
+      int send_status;
       send_status = client.send(
         socket_descriptor,
         MessageType::MESSAGE,

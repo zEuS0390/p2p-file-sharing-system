@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <unordered_map>
 #include <sys/eventfd.h>
 #include <sys/socket.h>
@@ -265,8 +266,9 @@ void ConnectionManager::runEventLoop()
 
       if (event.events & EPOLLIN)
       {
-        char receivedBuffer[4096];
-        ssize_t recv_status {recv(fd, receivedBuffer, sizeof(receivedBuffer)-1, 0)};
+        constexpr std::uint16_t buffer_size {4096};
+        char receivedBuffer[buffer_size];
+        long recv_status {recv(fd, receivedBuffer, sizeof(receivedBuffer)-1, 0)};
         if (recv_status > 0)
         {
           conn.recv_buffer.insert(
@@ -310,7 +312,7 @@ void ConnectionManager::runEventLoop()
         {
           size_t remaining {conn.send_buffer.size() - conn.send_offset};
 
-          ssize_t send_status {
+          long send_status {
             ::send(
               fd,
               conn.send_buffer.data() + conn.send_offset,
@@ -417,7 +419,7 @@ void ConnectionManager::removeConnection(int socket_descriptor)
   }
 }
 
-ssize_t ConnectionManager::send(
+int ConnectionManager::send(
   int socket_descriptor,
   const MessageType& message_type,
   const char* data,
@@ -425,12 +427,10 @@ ssize_t ConnectionManager::send(
 )
 {
   std::vector<char> payload(length);
-
   std::memcpy(payload.data(), data, length);
 
   {
     std::lock_guard<std::mutex> lock(m_mutex);
-
     m_event_commands.push(
       SendMessageEventCommand{
         socket_descriptor,

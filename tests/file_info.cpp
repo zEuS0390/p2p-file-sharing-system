@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
   std::memcpy(payload.data(), &file_request_header, sizeof(FileRequestHeader));
   std::memcpy(payload.data() + sizeof(FileRequestHeader), file_name.data(), file_name.size());
 
-  ssize_t send_status;
+  int send_status;
 
   send_status = client.send(
     server_socket_descriptor,

@@ -22,7 +22,7 @@ public:
   ~Client();
   int connect(const std::string&, int);
   int disconnect(int);
-  ssize_t send(int, const MessageType&, const char*, size_t);
+  int send(int, const MessageType&, const char*, size_t);
   void start();
   void stop();
 };

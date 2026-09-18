@@ -93,7 +93,7 @@ int Client::disconnect(int socket_descriptor)
   return 0;
 }
 
-ssize_t Client::send(int socket_descriptor, const MessageType& message_type, const char* data, size_t length)
+int Client::send(int socket_descriptor, const MessageType& message_type, const char* data, size_t length)
 {
   return m_client_connection_manager.send(socket_descriptor, message_type, data, length);
 }

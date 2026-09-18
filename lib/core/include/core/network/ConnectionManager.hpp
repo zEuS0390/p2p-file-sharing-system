@@ -44,7 +44,7 @@ public:
   void stopEventLoop();
   void addConnection(int, const Endpoint&);
   void removeConnection(int);
-  ssize_t send(int, const MessageType&, const char*, size_t);
+  int send(int, const MessageType&, const char*, size_t);
 };
 
 #endif

@@ -46,7 +46,7 @@ int Peer::disconnect(int socket_descriptor)
   return m_client.disconnect(socket_descriptor);
 }
 
-ssize_t Peer::send(
+int Peer::send(
   int socket_descriptor,
   const MessageType& message_type,
   const char* data,
