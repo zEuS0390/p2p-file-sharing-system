@@ -11,7 +11,7 @@
 #include "core/network/ServerConnectionManager.hpp"
 
 // Constructor
-Server::Server(IMessageHandler& message_handler):
+Server::Server(IMessageHandler& message_handler) noexcept:
   m_server_connection_manager(message_handler)
 {
 }

@@ -11,7 +11,7 @@
 #include "core/types/MessageType.hpp"
 
 // Constructor
-Client::Client(IMessageHandler& message_handler):
+Client::Client(IMessageHandler& message_handler) noexcept:
   m_client_connection_manager{message_handler}
 {
 }
