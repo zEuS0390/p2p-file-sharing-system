@@ -1,7 +1,9 @@
 #ifndef CORE_TYPES_MESSAGE_TYPE_HPP
 #define CORE_TYPES_MESSAGE_TYPE_HPP
 
-enum class MessageType
+#include <cstdint>
+
+enum class MessageType: std::uint8_t
 {
   FILE_DOWNLOAD_REQUEST,
   FILE_REQUEST,
