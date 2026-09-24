@@ -25,5 +25,5 @@ struct Connection
   std::mutex mutex;
 };
 
-#endif
+#endif // CORE_TYPES_CONNECTION_HPP
 

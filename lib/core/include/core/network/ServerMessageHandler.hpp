@@ -23,5 +23,5 @@ public:
   ) override;
 };
 
-#endif
+#endif // CORE_NETWORK_SERVER_MESSAGE_HANDLER_HPP
 

@@ -22,5 +22,5 @@ public:
   void initServer(uint16_t);
 };
 
-#endif
+#endif // CORE_NETWORK_SERVER_CONNECTION_MANAGER_HPP
 

@@ -1,5 +1,5 @@
-#ifndef NETWORK_PEER_HPP
-#define NETWORK_PEER_HPP
+#ifndef CORE_NETWORK_PEER_HPP
+#define CORE_NETWORK_PEER_HPP
 
 #include <cstdint>
 #include <string>
@@ -29,5 +29,5 @@ public:
   int send(int, const MessageType&, const char*, size_t);
 };
 
-#endif
+#endif // CORE_NETWORK_PEER_HPP
 

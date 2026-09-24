@@ -34,5 +34,5 @@ struct FileErrorHeader
   uint32_t message_size {};
 };
 
-#endif
+#endif // CORE_TYPES_MESSAGE_HEADER_HPP
 

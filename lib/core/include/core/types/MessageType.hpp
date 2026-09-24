@@ -15,5 +15,5 @@ enum class MessageType: std::uint8_t
   MESSAGE
 };
 
-#endif
+#endif // CORE_TYPES_MESSAGE_TYPE_HPP
 

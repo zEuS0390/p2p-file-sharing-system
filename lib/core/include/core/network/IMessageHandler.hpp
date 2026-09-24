@@ -24,5 +24,5 @@ public:
   virtual ~IMessageHandler() = default;
 };
 
-#endif
+#endif // CORE_NETWORK_INTERFACE_MESSAGE_HANDLER
 

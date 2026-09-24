@@ -10,5 +10,5 @@ struct FileInformation
   uint64_t file_size;
 };
 
-#endif
+#endif // CORE_TYPES_FILE_INFORMATION_HPP
 

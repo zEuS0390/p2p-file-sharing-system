@@ -13,5 +13,5 @@ struct Endpoint
   unsigned int socket_address_information_length {};
 };
 
-#endif
+#endif // CORE_TYPES_ENDPOINT_HPP
 

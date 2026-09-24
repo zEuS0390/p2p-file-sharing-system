@@ -23,5 +23,5 @@ public:
   void stop();
 };
 
-#endif
+#endif // CORE_NETWORK_SERVER_HPP
 

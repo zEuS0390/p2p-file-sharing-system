@@ -13,5 +13,5 @@ public:
   explicit ClientConnectionManager(IMessageHandler&);
 };
 
-#endif
+#endif // CORE_NETWORK_CLIENT_CONNECTION_MANAGER_HPP
 

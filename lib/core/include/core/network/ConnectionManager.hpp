@@ -47,5 +47,5 @@ public:
   int send(int, const MessageType&, const char*, size_t);
 };
 
-#endif
+#endif // CORE_NETWORK_CONNECTION_MANAGER_HPP
 

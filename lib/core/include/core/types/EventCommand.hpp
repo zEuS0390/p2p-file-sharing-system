@@ -33,4 +33,5 @@ using EventCommand = std::variant<
   SendMessageEventCommand
 >;
 
-#endif
+#endif // CORE_TYPES_EVENT_COMMAND_HPP
+
