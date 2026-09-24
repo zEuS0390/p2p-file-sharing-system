@@ -165,7 +165,10 @@ void ConnectionManager::processCommand(SendMessageEventCommand& event_command)
   auto it = m_connections.find(event_command.m_socket_descriptor);
 
   if (it == m_connections.end())
+  {
+    event_command.result.set_value(-1);
     return;
+  }
 
   Connection& conn{*it->second};
 
@@ -177,6 +180,8 @@ void ConnectionManager::processCommand(SendMessageEventCommand& event_command)
   );
 
   updateEpollEvents(conn);
+
+  event_command.result.set_value(0);
 }
 
 void ConnectionManager::processCommands() 
@@ -429,13 +434,17 @@ int ConnectionManager::send(
   std::vector<char> payload(length);
   std::memcpy(payload.data(), data, length);
 
+  std::promise<int> result;
+  std::future<int> future {result.get_future()};
+
   {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_event_commands.push(
       SendMessageEventCommand{
         socket_descriptor,
         message_type,
-        std::move(payload)
+        std::move(payload),
+        std::move(result)
       }
     );
   }
@@ -447,6 +456,6 @@ int ConnectionManager::send(
       std::cerr << "write command fd" << std::endl;
   }
 
-  return 0;
+  return future.get();
 }
 
