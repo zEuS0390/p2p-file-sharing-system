@@ -1,13 +1,16 @@
 #ifndef CORE_TYPES_CONNECTION_HPP
 #define CORE_TYPES_CONNECTION_HPP
 
-#include <mutex>
+#include <cstdint>
+#include <unordered_map>
 #include <vector>
 #include <poll.h>
 #include <atomic>
 
 #include "core/types/Endpoint.hpp"
+#include "core/types/IncomingFileTransfer.hpp"
 #include "core/types/MessageHeaders.hpp"
+#include "core/types/OutgoingFileTransfer.hpp"
 
 /*
  * A structure for both server and client containing connection information.
@@ -22,7 +25,9 @@ struct Connection
   std::vector<char> send_buffer;
   size_t send_offset {0};
   MessageHeader current_header {};
-  std::mutex mutex;
+  std::atomic<std::uint64_t> transfer_id {0};
+  std::unordered_map<std::uint64_t, OutgoingFileTransfer> outgoing_files;
+  std::unordered_map<std::uint64_t, IncomingFileTransfer> incoming_files;
 };
 
 #endif // CORE_TYPES_CONNECTION_HPP

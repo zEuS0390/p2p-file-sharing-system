@@ -1,7 +1,6 @@
 #ifndef CORE_NETWORK_INTERFACE_MESSAGE_HANDLER
 #define CORE_NETWORK_INTERFACE_MESSAGE_HANDLER
 
-#include "core/types/MessageHeaders.hpp"
 #include "core/types/Connection.hpp"
 
 /*
@@ -11,15 +10,14 @@ class IMessageHandler
 {
 public:
   virtual void dispatchMessage(
-    Connection&,
-    MessageHeader&,
-    const char*
+    Connection& connection,
+    const char* data
   ) = 0;
   virtual void queueMessage(
-    Connection&,
-    const MessageType&,
-    const char*,
-    size_t
+    Connection& connection,
+    const MessageType& message_type,
+    const char* data,
+    size_t data_size
   ) = 0;
   virtual ~IMessageHandler() = default;
 };

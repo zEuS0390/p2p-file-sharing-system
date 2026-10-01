@@ -14,8 +14,9 @@ struct MessageHeader
 
 struct FileInfoHeader
 {
-  uint32_t filename_size {};
-  uint64_t file_size {};
+  std::uint64_t transfer_id {};
+  std::uint32_t filename_size {};
+  std::uint64_t file_size {};
 };
 
 struct FileRequestHeader
@@ -25,7 +26,18 @@ struct FileRequestHeader
 
 struct FileChunkHeader
 {
-  uint32_t chunk_size {};
+  std::uint64_t transfer_id {};
+  std::uint32_t chunk_size {};
+};
+
+struct FileAckHeader
+{
+  std::uint64_t transfer_id {};
+};
+
+struct FileEndHeader 
+{
+  std::uint64_t transfer_id {};
 };
 
 struct FileErrorHeader

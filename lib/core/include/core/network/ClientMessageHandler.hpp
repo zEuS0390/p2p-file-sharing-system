@@ -11,15 +11,14 @@ class ClientMessageHandler: public IMessageHandler
 {
 public:
   void dispatchMessage(
-    Connection&,
-    MessageHeader&,
-    const char*
+    Connection& connection,
+    const char* data
   ) override;
   void queueMessage(
-    Connection&,
-    const MessageType&,
-    const char*,
-    size_t
+    Connection& connection,
+    const MessageType& message_type,
+    const char* data,
+    size_t data_size
   ) override;
 };
 

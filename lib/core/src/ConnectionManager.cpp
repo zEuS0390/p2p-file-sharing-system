@@ -85,7 +85,6 @@ void ConnectionManager::parseIncomingMessage(
 
       m_message_handler.dispatchMessage(
         connection,
-        connection.current_header,
         connection.recv_buffer.data() + connection.recv_offset
       );
 
@@ -261,11 +260,9 @@ void ConnectionManager::runEventLoop()
       }
 
       std::unordered_map<int, std::unique_ptr<Connection>>::iterator it;
-      {
-        it = m_connections.find(fd);
-        if (it == m_connections.end())
-          continue;
-      }
+      it = m_connections.find(fd);
+      if (it == m_connections.end())
+        continue;
 
       Connection& conn {*it->second};
 

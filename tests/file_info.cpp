@@ -28,17 +28,14 @@ int main(int argc, char* argv[])
 
   client.start();
 
-  std::cout << "Press enter to continue..." << std::endl;
-  std::cin.get();
-
   std::string file_name {argv[3]};
 
   FileRequestHeader file_request_header;
   file_request_header.filename_size = file_name.size();
 
   std::vector<char> payload;
+  payload.reserve(sizeof(FileRequestHeader) + file_name.size());
   payload.resize(sizeof(FileRequestHeader) + file_name.size());
-
   std::memcpy(payload.data(), &file_request_header, sizeof(FileRequestHeader));
   std::memcpy(payload.data() + sizeof(FileRequestHeader), file_name.data(), file_name.size());
 
@@ -46,7 +43,7 @@ int main(int argc, char* argv[])
 
   send_status = client.send(
     server_socket_descriptor,
-    MessageType::FILE_REQUEST,
+    MessageType::FILE_INFO_REQUEST,
     payload.data(),
     payload.size()
   );
@@ -57,7 +54,6 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  std::cout << "Press enter to continue..." << std::endl;
   std::cin.get();
 
   client.disconnect(server_socket_descriptor);

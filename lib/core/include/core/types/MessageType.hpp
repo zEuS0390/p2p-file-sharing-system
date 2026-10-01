@@ -6,7 +6,7 @@
 enum class MessageType: std::uint8_t
 {
   FILE_DOWNLOAD_REQUEST,
-  FILE_REQUEST,
+  FILE_INFO_REQUEST,
   FILE_INFO,
   FILE_CHUNK,
   FILE_ACK,
