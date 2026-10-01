@@ -159,7 +159,7 @@ void ServerMessageHandler::dispatchMessage(
           std::vector<char> payload;
           payload.resize(sizeof(FileChunkHeader) + bytes_read);
           std::memcpy(payload.data(), &file_chunk_header, sizeof(FileChunkHeader));
-          std::memcpy(payload.data()+sizeof(FileChunkHeader), file_chunk.data(), file_chunk.size());
+          std::memcpy(payload.data()+sizeof(FileChunkHeader), file_chunk.data(), bytes_read);
           queueMessage(
             connection,
             MessageType::FILE_CHUNK,
