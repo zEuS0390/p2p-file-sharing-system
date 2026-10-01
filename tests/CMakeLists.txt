@@ -4,6 +4,7 @@ add_executable(peer "${CMAKE_CURRENT_SOURCE_DIR}/peer.cpp")
 add_executable(server "${CMAKE_CURRENT_SOURCE_DIR}/server.cpp")
 add_executable(client "${CMAKE_CURRENT_SOURCE_DIR}/client.cpp")
 add_executable(fileinfo "${CMAKE_CURRENT_SOURCE_DIR}/file_info.cpp")
+add_executable(filedownload "${CMAKE_CURRENT_SOURCE_DIR}/file_download.cpp")
 
 set_target_properties(peer PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
@@ -13,9 +14,12 @@ set_target_properties(client PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 set_target_properties(fileinfo PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
+set_target_properties(filedownload PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 
 target_link_libraries(peer PRIVATE core)
 target_link_libraries(server PRIVATE core)
 target_link_libraries(client PRIVATE core)
 target_link_libraries(fileinfo PRIVATE core)
+target_link_libraries(filedownload PRIVATE core)
 
