@@ -26,7 +26,8 @@ int main(int argc, const char* argv[])
   client.start();
 
   std::string file_name {argv[3]};
-  FileRequestHeader file_request_header(file_name.size());
+  FileRequestHeader file_request_header;
+  file_request_header.filename_size = file_name.size();
 
   std::vector<char> bytes {};
   bytes.reserve(file_name.size() + sizeof(FileRequestHeader));
