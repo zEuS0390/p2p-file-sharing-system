@@ -18,11 +18,16 @@ private:
   ClientConnectionManager m_client_connection_manager;
   std::thread m_event_thread;
 public:
-  explicit Client(IMessageHandler&) noexcept;
+  explicit Client(IMessageHandler& message_handler) noexcept;
   ~Client();
-  int connect(const std::string&, int);
-  int disconnect(int);
-  int send(int, const MessageType&, const char*, size_t);
+  int connect(const std::string& hostname, int port);
+  int disconnect(int socket_descriptor);
+  int send(
+    int socket_descriptor,
+    const MessageType& message_type,
+    const char* data,
+    size_t length
+  );
   void start();
   void stop();
 };
