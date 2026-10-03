@@ -1,7 +1,9 @@
 #ifndef CORE_TYPES_FILE_ERROR_CODE_HPP
 #define CORE_TYPES_FILE_ERROR_CODE_HPP
 
-enum class FileErrorCode
+#include <cstdint>
+
+enum class FileErrorCode: std::uint8_t
 {
   FILE_NOT_FOUND,
   FILE_PERMISSION_DENIED,
@@ -10,5 +12,5 @@ enum class FileErrorCode
   FILE_GENERIC_ERROR
 };
 
-#endif
+#endif // CORE_TYPES_FILE_ERROR_CODE_HPP
 
