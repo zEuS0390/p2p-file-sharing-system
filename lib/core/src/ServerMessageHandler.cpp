@@ -170,6 +170,20 @@ void ServerMessageHandler::dispatchMessage(
       }
       break;
     }
+    case MessageType::FILE_END:
+    {
+      FileEndHeader file_end_header {};
+      std::memcpy(&file_end_header, data, sizeof(FileEndHeader));
+      auto it {connection.outgoing_files.find(file_end_header.transfer_id)};
+      if (it != connection.outgoing_files.end())
+      {
+        std::cout << "File transfer complete." << std::endl;
+        OutgoingFileTransfer& outgoing_file {it->second};
+        outgoing_file.file.close();
+        connection.outgoing_files.erase(it);
+      }
+      break;
+    }
     default:
       break;
   }

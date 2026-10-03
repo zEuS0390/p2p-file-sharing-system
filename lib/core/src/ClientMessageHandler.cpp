@@ -1,5 +1,6 @@
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <ios>
 #include <iostream>
 #include <cstring>
@@ -13,7 +14,6 @@
 
 void ClientMessageHandler::dispatchMessage(
  Connection& connection,
- // MessageHeader& message_header,
  const char* data
 )
 {
@@ -77,8 +77,39 @@ void ClientMessageHandler::dispatchMessage(
         IncomingFileTransfer& incoming_file {it->second};
         incoming_file.file.write(file_chunk, file_chunk_header.chunk_size);
         incoming_file.bytes_received += file_chunk_header.chunk_size;
-        std::cout << "\r\033[2K" << incoming_file.bytes_received << "/" << incoming_file.file_size << std::flush;
-        FileAckHeader file_ack_header;
+
+        // NOTE: This is just for displaying one progress for the incoming file transfer.
+        std::cout << "\r\033[2K"
+                  << incoming_file.bytes_received
+                  << "/"
+                  << incoming_file.file_size
+                  << " - "
+                  << ((static_cast<double>(incoming_file.bytes_received)/static_cast<double>(incoming_file.file_size))*100)
+                  << "%"
+                  << std::fixed
+                  << std::setprecision(2)
+                  << std::flush;
+
+        if (incoming_file.bytes_received == incoming_file.file_size)
+        {
+          std::cout << "\nFile download complete.\n" << std::flush;
+          incoming_file.file.close();
+          connection.incoming_files.erase(it);
+          FileEndHeader file_end_header {};
+          file_end_header.transfer_id = file_chunk_header.transfer_id;
+          std::vector<char> payload;
+          payload.resize(sizeof(FileEndHeader));
+          std::memcpy(payload.data(), &file_end_header, sizeof(FileEndHeader));
+          queueMessage(
+            connection,
+            MessageType::FILE_END,
+            payload.data(),
+            payload.size()
+          );
+          break;
+        }
+
+        FileAckHeader file_ack_header {};
         file_ack_header.transfer_id = file_chunk_header.transfer_id;
         std::vector<char> payload;
         payload.resize(sizeof(FileAckHeader));
@@ -97,7 +128,7 @@ void ClientMessageHandler::dispatchMessage(
       FileErrorHeader file_error_header;
       std::memcpy(&file_error_header, data, sizeof(FileErrorHeader));
       const char* message {data + sizeof(FileErrorHeader)};
-      std::cout << message << std::endl;
+      std::cout << message << "\n" << std::flush;
       break;
     }
     default:
