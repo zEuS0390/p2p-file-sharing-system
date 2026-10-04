@@ -122,7 +122,6 @@ void ConnectionManager::processCommand(AddAllListenerSocketsEventCommand& event_
   std::swap(m_listen_fds, event_command.m_listen_fds);
   for (const int& listen_fd: m_listen_fds)
   {
-    std::cout << listen_fd << std::endl;
     epoll_event command_event {};
     command_event.events = EPOLLIN;
     command_event.data.fd = listen_fd;
