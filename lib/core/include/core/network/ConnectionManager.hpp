@@ -13,6 +13,7 @@
 #include <unordered_set>
 
 #include "core/network/IMessageHandler.hpp"
+#include "core/network/IOMultiplexer.hpp"
 #include "core/types/Connection.hpp"
 #include "core/types/MessageType.hpp"
 #include "core/types/EventCommand.hpp"
@@ -26,22 +27,20 @@ private:
   static constexpr int MAX_EVENTS {64};
 protected:
   IMessageHandler& m_message_handler;
+  IOMultiplexer m_io_multiplexer;
   std::mutex m_mutex;
   std::atomic<bool> m_is_event_running;
   std::atomic<bool> m_is_listen_running;
-  std::atomic<int> m_epfd;
   std::atomic<int> m_command_fd;
   std::unordered_set<int> m_listen_fds;
   std::queue<EventCommand> m_event_commands;
   std::unordered_map<int, std::unique_ptr<Connection> > m_connections;
-  std::array<epoll_event, MAX_EVENTS> m_epoll_events;
 private:
   void processCommand(AddAllListenerSocketsEventCommand& event_command);
   void processCommand(AddConnectionEventCommand& event_command);
   void processCommand(RemoveConnectionEventCommand& event_command);
   void processCommand(SendMessageEventCommand& event_command);
   void processCommands();
-  void updateEpollEvents(Connection& connection);
   void parseIncomingMessage(Connection& connection);
 public:
   explicit ConnectionManager(IMessageHandler& message_handler);

@@ -16,7 +16,6 @@
 #include <memory>
 #include <cerrno>
 #include <mutex>
-#include <array>
 #include <queue>
 
 #include "core/network/ConnectionManager.hpp"
@@ -30,47 +29,23 @@ ConnectionManager::ConnectionManager(IMessageHandler& message_handler):
   m_message_handler{message_handler},
   m_is_event_running{false},
   m_is_listen_running{false},
-  m_epfd{-1},
   m_command_fd{-1}
 {
-  m_epfd.store(epoll_create1(0));
-  if (m_epfd.load() == -1)
-    throw std::runtime_error("couldn't create epoll instance.");
   m_command_fd = eventfd(0,EFD_NONBLOCK | EFD_CLOEXEC);
   if (m_command_fd == -1)
     throw std::runtime_error("eventfd (m_command_fd) error.");
-
-  epoll_event command_event {};
-  command_event.events = EPOLLIN;
-  command_event.data.fd = m_command_fd;
-  if (epoll_ctl(m_epfd, EPOLL_CTL_ADD, m_command_fd, &command_event) == -1)
-  {
-    close(m_command_fd);
-    throw std::runtime_error("eventfd (m_command_fd): couldn't add command fd to epoll.");
-  }
+  m_io_multiplexer.addFD(m_command_fd);
 }
 
 ConnectionManager::~ConnectionManager()
 {
   m_connections.clear();
   for (const int& listen_fd: m_listen_fds) 
-  {
-    std::cout << listen_fd << std::endl;
-    epoll_ctl(
-        m_epfd,
-        EPOLL_CTL_DEL,
-        listen_fd,
-        nullptr
-    );
-    close(listen_fd);
-  }
+    m_io_multiplexer.removeFD(listen_fd);
   close(m_command_fd.load());
-  close(m_epfd.load());
 }
 
-void ConnectionManager::parseIncomingMessage(
-  Connection& connection
-)
+void ConnectionManager::parseIncomingMessage(Connection& connection)
 {
   while (true)
   {
@@ -101,7 +76,10 @@ void ConnectionManager::parseIncomingMessage(
         connection.recv_buffer.data() + connection.recv_offset
       );
 
-      updateEpollEvents(connection);
+      epoll_event ep_event {};
+      ep_event.events = EPOLLIN | EPOLLOUT;
+      ep_event.data.fd = connection.socket_descriptor;
+      m_io_multiplexer.modifyFDSettings(connection.socket_descriptor, ep_event);
 
       connection.recv_offset += connection.current_header.payload_size;
       connection.reading_header = true;
@@ -121,44 +99,16 @@ void ConnectionManager::processCommand(AddAllListenerSocketsEventCommand& event_
     return;
   std::swap(m_listen_fds, event_command.m_listen_fds);
   for (const int& listen_fd: m_listen_fds)
-  {
-    epoll_event command_event {};
-    command_event.events = EPOLLIN;
-    command_event.data.fd = listen_fd;
-    epoll_ctl(m_epfd, EPOLL_CTL_ADD, listen_fd, &command_event);
-  }
+    if (m_io_multiplexer.addFD(listen_fd) < 0)
+      std::cout << "eventfd: couldn't add command fd to epoll.\n" << std::flush;
 }
 
 void ConnectionManager::processCommand(AddConnectionEventCommand& event_command)
 {
-
-  std::unique_ptr<Connection> connection{
-      std::make_unique<Connection>()
-  };
-
+  std::unique_ptr<Connection> connection {std::make_unique<Connection>()};
   connection->endpoint = event_command.endpoint;
   connection->socket_descriptor = event_command.m_socket_descriptor;
-
-  epoll_event connection_epoll_event{};
-  connection_epoll_event.events = EPOLLIN;
-  connection_epoll_event.data.fd = event_command.m_socket_descriptor;
-
-  if (epoll_ctl(
-        m_epfd,
-        EPOLL_CTL_ADD,
-        event_command.m_socket_descriptor,
-        &connection_epoll_event
-      ) == -1)
-  {
-      std::cout
-          << "couldn't add file descriptor to epoll instance."
-          << std::endl;
-
-      shutdown(event_command.m_socket_descriptor, SHUT_RDWR);
-      close(event_command.m_socket_descriptor);
-      return;
-  }
-
+  m_io_multiplexer.addFD(event_command.m_socket_descriptor);
   m_connections.emplace(
       event_command.m_socket_descriptor,
       std::move(connection)
@@ -168,45 +118,34 @@ void ConnectionManager::processCommand(AddConnectionEventCommand& event_command)
 void ConnectionManager::processCommand(RemoveConnectionEventCommand& event_command)
 {
   auto it = m_connections.find(event_command.m_socket_descriptor);
-
   if (it == m_connections.end())
     return;
-
   Connection& conn{*it->second};
-
-  epoll_ctl(
-      m_epfd,
-      EPOLL_CTL_DEL,
-      conn.socket_descriptor,
-      nullptr
-  );
-
-  shutdown(conn.socket_descriptor, SHUT_RDWR);
-  close(conn.socket_descriptor);
-
+  m_io_multiplexer.removeFD(conn.socket_descriptor);
   m_connections.erase(it);
 }
 
 void ConnectionManager::processCommand(SendMessageEventCommand& event_command)
 {
   auto it = m_connections.find(event_command.m_socket_descriptor);
-
   if (it == m_connections.end())
   {
     event_command.result.set_value(-1);
     return;
   }
-
   Connection& conn{*it->second};
-
   m_message_handler.queueMessage(
     conn,
     event_command.m_message_type,
     event_command.m_payload.data(),
     event_command.m_payload.size()
   );
-
-  updateEpollEvents(conn);
+  epoll_event ep_event {};
+  ep_event.events = EPOLLIN;
+  ep_event.data.fd = conn.socket_descriptor;
+  if (conn.send_offset < conn.send_buffer.size())
+    ep_event.events |= EPOLLOUT;
+  m_io_multiplexer.modifyFDSettings(conn.socket_descriptor, ep_event);
 
   event_command.result.set_value(0);
 }
@@ -232,26 +171,6 @@ void ConnectionManager::processCommands()
       },
       event_command
     );
-  }
-}
-
-void ConnectionManager::updateEpollEvents(Connection& conection)
-{
-  epoll_event ev{};
-  ev.events = EPOLLIN;
-
-  if (conection.send_offset < conection.send_buffer.size())
-    ev.events |= EPOLLOUT;
-
-  ev.data.fd = conection.socket_descriptor;
-
-  if (epoll_ctl(
-    m_epfd,
-    EPOLL_CTL_MOD,
-    conection.socket_descriptor,
-    &ev) == -1)
-  {
-    std::cerr << "epoll_ctl MOD" << std::endl;
   }
 }
 
@@ -333,11 +252,7 @@ void ConnectionManager::initListeners(std::uint16_t port)
     m_event_commands.push(AddAllListenerSocketsEventCommand{listen_fds});
   }
   std::uint64_t value{1};
-  if (write(m_command_fd, &value, sizeof(value)) == -1)
-  {
-    if (errno != EAGAIN && errno != EWOULDBLOCK)
-      std::cerr << "write command fd" << std::endl;
-  }
+  m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
 }
 
 void ConnectionManager::startListening()
@@ -355,33 +270,14 @@ void ConnectionManager::runEventLoop()
   m_is_event_running.store(true);
   while (m_is_event_running.load())
   {
-    int ready {epoll_wait(m_epfd, m_epoll_events.data(), MAX_EVENTS, -1)};
-
-    if (ready == -1)
-    {
-      if (errno == EINTR)
-        continue;
-      std::cerr << "epoll_wait" << std::endl;
-      break;
-    }
-
-    for (int i {0}; i < ready; ++i)
-    {
-      epoll_event& event {m_epoll_events.at(i)};
-      int fd {event.data.fd};
-
+    m_io_multiplexer.monitorEvents([this](int fd, epoll_event& ev){
       if (fd == m_command_fd)
       {
-        uint64_t value;
-        if (read(m_command_fd, &value, sizeof(value)) == -1)
-        {
-          if (errno != EAGAIN && errno != EWOULDBLOCK)
-            std::cerr << "read command fd" << std::endl;
-        }
+        uint64_t value {};
+        m_io_multiplexer.readFD(m_command_fd, &value, sizeof(value));
         processCommands();
-        continue;
+        return;
       }
-
       {
         auto it {m_listen_fds.find(fd)};
         if (it != m_listen_fds.end())
@@ -395,7 +291,7 @@ void ConnectionManager::runEventLoop()
               &client_info.socket_address_information_length)
           };
           if (client == -1)
-            continue;
+            return;
           // Do not accept connection if the m_is_listen_running flag is set to false
           if (!m_is_listen_running.load())
           {
@@ -404,7 +300,7 @@ void ConnectionManager::runEventLoop()
             std::cout << msg;
             shutdown(client, SHUT_RDWR);
             close(client);
-            continue;
+            return;
           }
           {
             std::lock_guard<std::mutex> lock(m_mutex);
@@ -416,22 +312,15 @@ void ConnectionManager::runEventLoop()
             );
           }
           uint64_t value{1};
-          if (write(m_command_fd, &value, sizeof(value)) == -1)
-          {
-            if (errno != EAGAIN && errno != EWOULDBLOCK)
-              std::cerr << "write command fd" << std::endl;
-          }
+          m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
           std::cout << "Client connected successfully." << std::endl;
         }
       }
-
       auto it = m_connections.find(fd);
       if (it == m_connections.end())
-        continue;
-
+        return;
       Connection& conn {*it->second};
-
-      if (event.events & EPOLLIN)
+      if (ev.events & EPOLLIN)
       {
         constexpr std::uint16_t buffer_size {4096};
         char receivedBuffer[buffer_size];
@@ -443,37 +332,25 @@ void ConnectionManager::runEventLoop()
             receivedBuffer,
             receivedBuffer + recv_status
           );
-
           parseIncomingMessage(conn);
         }
         else if (recv_status == 0)
         {
           std::cout << "disconnected cleanly." << std::endl;
-
-          epoll_ctl(
-            m_epfd,
-            EPOLL_CTL_DEL,
-            conn.socket_descriptor,
-            nullptr
-          );
-
-          shutdown(conn.socket_descriptor, SHUT_RDWR);
-          close(conn.socket_descriptor);
-
+          m_io_multiplexer.removeFD(conn.socket_descriptor);
           m_connections.erase(it);
-
-          continue;
+          return;
         }
         else
         {
           if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
           {
             removeConnection(fd);
-            continue;
+            return;
           }
         }
       }
-      if (event.events & EPOLLOUT)
+      if (ev.events & EPOLLOUT)
       {
         while (conn.send_offset < conn.send_buffer.size())
         {
@@ -493,7 +370,6 @@ void ConnectionManager::runEventLoop()
             conn.send_offset += send_status;
             continue;
           }
-
           if (send_status == -1)
           {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
@@ -507,41 +383,37 @@ void ConnectionManager::runEventLoop()
             break;
           }
         }
-
         if (conn.send_offset == conn.send_buffer.size())
         {
           conn.send_buffer.clear();
           conn.send_offset = 0;
-          updateEpollEvents(conn);
+          epoll_event ep_event {};
+          ep_event.events = EPOLLIN;
+          ep_event.data.fd = conn.socket_descriptor;
+          m_io_multiplexer.modifyFDSettings(conn.socket_descriptor, ep_event);
         }
       }
-      if (event.events & EPOLLHUP)
+      if (ev.events & EPOLLHUP)
       {
         std::cout << "socket hangup." << std::endl;
         removeConnection(fd);
-        continue;
+        return;
       }
-      if (event.events & EPOLLERR)
+      if (ev.events & EPOLLERR)
       {
         std::cout << "socket error." << std::endl;
         removeConnection(fd);
-        continue;
+        return;
       }
-    }
+    });
   }
 }
 
 void ConnectionManager::stopEventLoop()
 {
   m_is_event_running.store(false);
-
   uint64_t value{1};
-
-  if (write(m_command_fd, &value, sizeof(value)) == -1)
-  {
-    if (errno != EAGAIN && errno != EWOULDBLOCK)
-      std::cerr << "write command fd" << std::endl;
-  }
+  m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
 }
 
 void ConnectionManager::addConnection(
@@ -558,12 +430,8 @@ void ConnectionManager::addConnection(
       }
     );
   }
-  uint64_t value{1};
-  if (write(m_command_fd, &value, sizeof(value)) == -1)
-  {
-    if (errno != EAGAIN && errno != EWOULDBLOCK)
-      std::cerr << "write command fd" << std::endl;
-  }
+  uint64_t value {1};
+  m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
   return;
 }
 
@@ -577,12 +445,8 @@ void ConnectionManager::removeConnection(int socket_descriptor)
       }
     );
   }
-  uint64_t value{1};
-  if (write(m_command_fd, &value, sizeof(value)) == -1)
-  {
-    if (errno != EAGAIN && errno != EWOULDBLOCK)
-      std::cerr << "write command fd" << std::endl;
-  }
+  uint64_t value {1};
+  m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
 }
 
 int ConnectionManager::connect(const std::string &hostname, int port)
@@ -651,14 +515,8 @@ int ConnectionManager::connect(const std::string &hostname, int port)
       }
     );
   }
-
-  uint64_t value{1};
-  if (write(m_command_fd, &value, sizeof(value)) == -1)
-  {
-    if (errno != EAGAIN && errno != EWOULDBLOCK)
-      std::cerr << "write command fd" << std::endl;
-  }
-
+  uint64_t value {1};
+  m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
   return server_socket_descriptor;
 }
 
@@ -692,14 +550,8 @@ int ConnectionManager::send(
       }
     );
   }
-
-  uint64_t value{1};
-  if (write(m_command_fd, &value, sizeof(value)) == -1)
-  {
-    if (errno != EAGAIN && errno != EWOULDBLOCK)
-      std::cerr << "write command fd" << std::endl;
-  }
-
+  uint64_t value {1};
+  m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
   return future.get();
 }
 
