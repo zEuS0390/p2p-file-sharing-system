@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <cstring>
 #include <netdb.h>
+#include <unordered_set>
 #include <utility>
 #include <cstdio>
 #include <memory>
@@ -28,6 +29,7 @@
 ConnectionManager::ConnectionManager(IMessageHandler& message_handler):
   m_message_handler{message_handler},
   m_is_event_running{false},
+  m_is_listen_running{false},
   m_epfd{-1},
   m_command_fd{-1}
 {
@@ -36,22 +38,33 @@ ConnectionManager::ConnectionManager(IMessageHandler& message_handler):
     throw std::runtime_error("couldn't create epoll instance.");
   m_command_fd = eventfd(0,EFD_NONBLOCK | EFD_CLOEXEC);
   if (m_command_fd == -1)
-    throw std::runtime_error("eventfd error.");
+    throw std::runtime_error("eventfd (m_command_fd) error.");
 
   epoll_event command_event {};
   command_event.events = EPOLLIN;
   command_event.data.fd = m_command_fd;
-
   if (epoll_ctl(m_epfd, EPOLL_CTL_ADD, m_command_fd, &command_event) == -1)
   {
     close(m_command_fd);
-    throw std::runtime_error("couldn't add command fd to epoll.");
+    throw std::runtime_error("eventfd (m_command_fd): couldn't add command fd to epoll.");
   }
 }
 
 ConnectionManager::~ConnectionManager()
 {
   m_connections.clear();
+  for (const int& listen_fd: m_listen_fds) 
+  {
+    std::cout << listen_fd << std::endl;
+    epoll_ctl(
+        m_epfd,
+        EPOLL_CTL_DEL,
+        listen_fd,
+        nullptr
+    );
+    close(listen_fd);
+  }
+  close(m_command_fd.load());
   close(m_epfd.load());
 }
 
@@ -102,8 +115,24 @@ void ConnectionManager::parseIncomingMessage(
   }
 }
 
+void ConnectionManager::processCommand(AddAllListenerSocketsEventCommand& event_command)
+{
+  if (event_command.m_listen_fds.empty())
+    return;
+  std::swap(m_listen_fds, event_command.m_listen_fds);
+  for (const int& listen_fd: m_listen_fds)
+  {
+    std::cout << listen_fd << std::endl;
+    epoll_event command_event {};
+    command_event.events = EPOLLIN;
+    command_event.data.fd = listen_fd;
+    epoll_ctl(m_epfd, EPOLL_CTL_ADD, listen_fd, &command_event);
+  }
+}
+
 void ConnectionManager::processCommand(AddConnectionEventCommand& event_command)
 {
+
   std::unique_ptr<Connection> connection{
       std::make_unique<Connection>()
   };
@@ -207,24 +236,119 @@ void ConnectionManager::processCommands()
   }
 }
 
-void ConnectionManager::updateEpollEvents(Connection& conn)
+void ConnectionManager::updateEpollEvents(Connection& conection)
 {
   epoll_event ev{};
   ev.events = EPOLLIN;
 
-  if (conn.send_offset < conn.send_buffer.size())
+  if (conection.send_offset < conection.send_buffer.size())
     ev.events |= EPOLLOUT;
 
-  ev.data.fd = conn.socket_descriptor;
+  ev.data.fd = conection.socket_descriptor;
 
   if (epoll_ctl(
     m_epfd,
     EPOLL_CTL_MOD,
-    conn.socket_descriptor,
+    conection.socket_descriptor,
     &ev) == -1)
   {
     std::cerr << "epoll_ctl MOD" << std::endl;
   }
+}
+
+void ConnectionManager::initListeners(std::uint16_t port)
+{
+  // Create an address information for the server socket
+  struct addrinfo* server_addresses {nullptr};
+
+  struct addrinfo hints;
+  std::memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_INET6;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_protocol = IPPROTO_TCP;
+  hints.ai_flags = AI_PASSIVE;
+
+  std::string port_str {std::to_string(port)};
+  int getaddrinfo_status {getaddrinfo(nullptr, port_str.c_str(), &hints, &server_addresses)};
+
+  if (getaddrinfo_status != 0)
+    throw std::runtime_error(strerror(errno));
+
+  std::unordered_set<int> listen_fds;
+  for (struct addrinfo* p {server_addresses}; p != nullptr; p = p->ai_next)
+  {
+    int socket_descriptor {
+      socket(
+        p->ai_family,
+        p->ai_socktype,
+        p->ai_protocol
+      )
+    };
+
+    if (socket_descriptor == -1)
+      continue;
+
+    // Enable to reuse the same address without the system restruction (ONLY FOR DEV and DEBUGGING) 
+    int opt = 1;
+    setsockopt(socket_descriptor, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    int v6only = 0;
+    setsockopt(socket_descriptor, IPPROTO_IPV6, IPV6_V6ONLY, &v6only, sizeof(v6only));
+
+    // Bind the address information on the server socket
+    int bind_result {
+      bind(
+        socket_descriptor,
+        p->ai_addr,
+        p->ai_addrlen
+      )
+    };
+
+    if (bind_result != 0)
+    {
+      std::cerr << strerror(errno) << std::endl;
+      shutdown(socket_descriptor, SHUT_RDWR);
+      close(socket_descriptor);
+      continue;
+    }
+
+    int listen_status {listen(socket_descriptor, SOMAXCONN)};
+
+    if (listen_status != 0)
+    {
+      std::cerr << strerror(errno) << std::endl;
+      shutdown(socket_descriptor, SHUT_RDWR);
+      close(socket_descriptor);
+      continue;
+    }
+
+    listen_fds.insert(socket_descriptor);
+  }
+  freeaddrinfo(server_addresses);
+
+  if (listen_fds.empty())
+    throw std::runtime_error("An error has occured for preparing the network addresses");
+
+  {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_event_commands.push(AddAllListenerSocketsEventCommand{listen_fds});
+  }
+  std::uint64_t value{1};
+  if (write(m_command_fd, &value, sizeof(value)) == -1)
+  {
+    if (errno != EAGAIN && errno != EWOULDBLOCK)
+      std::cerr << "write command fd" << std::endl;
+  }
+}
+
+void ConnectionManager::startListening()
+{
+  m_is_listen_running.store(true);
+}
+
+void ConnectionManager::stopListening()
+{
+  m_is_listen_running.store(false);
 }
 
 void ConnectionManager::runEventLoop()
@@ -259,8 +383,50 @@ void ConnectionManager::runEventLoop()
         continue;
       }
 
-      std::unordered_map<int, std::unique_ptr<Connection>>::iterator it;
-      it = m_connections.find(fd);
+      {
+        auto it {m_listen_fds.find(fd)};
+        if (it != m_listen_fds.end())
+        {
+          const int& fd = *it;
+          Endpoint client_info {};
+          int client {
+            accept(
+              fd,
+              (struct sockaddr*)&client_info.socket_address_information,
+              &client_info.socket_address_information_length)
+          };
+          if (client == -1)
+            continue;
+          // Do not accept connection if the m_is_listen_running flag is set to false
+          if (!m_is_listen_running.load())
+          {
+            const char* msg = "SERVER_NOT_ACCEPTING\n";
+            ::send(client, msg, std::strlen(msg), 0);
+            std::cout << msg;
+            shutdown(client, SHUT_RDWR);
+            close(client);
+            continue;
+          }
+          {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_event_commands.push(
+              AddConnectionEventCommand{
+                client,
+                client_info
+              }
+            );
+          }
+          uint64_t value{1};
+          if (write(m_command_fd, &value, sizeof(value)) == -1)
+          {
+            if (errno != EAGAIN && errno != EWOULDBLOCK)
+              std::cerr << "write command fd" << std::endl;
+          }
+          std::cout << "Client connected successfully." << std::endl;
+        }
+      }
+
+      auto it = m_connections.find(fd);
       if (it == m_connections.end())
         continue;
 
@@ -393,7 +559,6 @@ void ConnectionManager::addConnection(
       }
     );
   }
-
   uint64_t value{1};
   if (write(m_command_fd, &value, sizeof(value)) == -1)
   {
@@ -419,6 +584,89 @@ void ConnectionManager::removeConnection(int socket_descriptor)
     if (errno != EAGAIN && errno != EWOULDBLOCK)
       std::cerr << "write command fd" << std::endl;
   }
+}
+
+int ConnectionManager::connect(const std::string &hostname, int port)
+{
+  // Retrieve the server's network addresses.
+  struct addrinfo* server_addresses = nullptr;
+
+  struct addrinfo hints {};
+  hints.ai_family = AF_UNSPEC;          // IPv4 or IPv6
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_protocol = IPPROTO_TCP;
+
+  int getaddrinfo_status = getaddrinfo(
+      hostname.c_str(),
+      std::to_string(port).c_str(),
+      &hints,
+      &server_addresses);
+
+  if (getaddrinfo_status != 0)
+  {
+      std::cerr << gai_strerror(getaddrinfo_status) << std::endl;
+      return -1;
+  }
+
+  int server_socket_descriptor = -1;
+  Endpoint endpoint {};
+
+  for (addrinfo* p = server_addresses; p != nullptr; p = p->ai_next)
+  {
+      int sock = socket(
+          p->ai_family,
+          p->ai_socktype,
+          p->ai_protocol);
+
+      if (sock == -1)
+          continue;
+
+      if (::connect(sock, p->ai_addr, p->ai_addrlen) == 0)
+      {
+          server_socket_descriptor = sock;
+
+          endpoint.socket_address_information_length = p->ai_addrlen;
+
+          std::memcpy(
+              &endpoint.socket_address_information,
+              p->ai_addr,
+              p->ai_addrlen);
+
+          break;
+      }
+
+      close(sock);
+  }
+
+  freeaddrinfo(server_addresses);
+
+  if (server_socket_descriptor == -1)
+      return -2;
+
+  {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_event_commands.push(
+      AddConnectionEventCommand{
+        server_socket_descriptor,
+        endpoint
+      }
+    );
+  }
+
+  uint64_t value{1};
+  if (write(m_command_fd, &value, sizeof(value)) == -1)
+  {
+    if (errno != EAGAIN && errno != EWOULDBLOCK)
+      std::cerr << "write command fd" << std::endl;
+  }
+
+  return server_socket_descriptor;
+}
+
+int ConnectionManager::disconnect(int socket_descriptor)
+{
+  removeConnection(socket_descriptor);
+  return 0;
 }
 
 int ConnectionManager::send(

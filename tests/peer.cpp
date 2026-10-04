@@ -2,11 +2,10 @@
 #include <fstream>
 #include <string>
 #include <atomic>
+#include <thread>
 
-#include "core/network/ClientMessageHandler.hpp"
-#include "core/network/ServerMessageHandler.hpp"
-#include "core/types/MessageType.hpp"
-#include "core/network/Peer.hpp"
+#include "core/network/MessageHandler.hpp"
+#include "core/network/ConnectionManager.hpp"
 
 std::atomic<bool> is_running {true};
 std::atomic<int> socket_descriptor {-1};
@@ -20,12 +19,12 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  ServerMessageHandler server_message_handler;
-  ClientMessageHandler client_message_handler;
+  MessageHandler message_handler;
+  ConnectionManager peer{message_handler};
 
-  Peer peer{server_message_handler, client_message_handler};
-
-  peer.start(std::stoi(argv[1]));
+  std::thread peerEventThread {&ConnectionManager::runEventLoop, &peer};
+  peer.initListeners(std::stoi(argv[1]));
+  peer.startListening();
 
   socket_descriptor.store(peer.connect("localhost", std::stoi(argv[1])));
 
@@ -62,13 +61,15 @@ int main(int argc, char* argv[])
 
   std::cin.get();
 
-  peer.disconnect(socket_descriptor);
-
-  peer.stop();
-
   is_running.store(false);
 
+  peer.disconnect(socket_descriptor);
+  peer.stopListening();
+
+  peer.stopEventLoop();
+
   sendThread.join();
+  peerEventThread.join();
 
   return 0;
 }

@@ -2,8 +2,8 @@
 #include <iostream>
 #include <string>
 
-#include "core/network/Client.hpp"
-#include "core/network/ClientMessageHandler.hpp"
+#include "core/network/ConnectionManager.hpp"
+#include "core/network/MessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
 
 // Main Entry Point of the Program
@@ -18,12 +18,12 @@ int main(int argc, const char* argv[])
     return 1;
   }
 
-  ClientMessageHandler client_message_handler;
-  Client client {client_message_handler};
+  MessageHandler message_handler;
+  ConnectionManager client {message_handler};
 
   int socket_descriptor {client.connect(argv[1], std::stoi(argv[2]))};
 
-  client.start();
+  std::thread eventThread {&ConnectionManager::runEventLoop, &client};
 
   std::string file_name {argv[3]};
   FileRequestHeader file_request_header;
@@ -55,7 +55,10 @@ int main(int argc, const char* argv[])
 
   client.disconnect(socket_descriptor);
 
-  client.stop();
+  client.stopEventLoop();
+
+  eventThread.join();
 
   return 0;
 }
+

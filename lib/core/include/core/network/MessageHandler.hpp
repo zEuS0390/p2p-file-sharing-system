@@ -1,13 +1,12 @@
-#ifndef CORE_NETWORK_SERVER_MESSAGE_HANDLER_HPP
-#define CORE_NETWORK_SERVER_MESSAGE_HANDLER_HPP
+#ifndef CORE_NETWORK_MESSAGE_HANDLER_HPP
+#define CORE_NETWORK_MESSAGE_HANDLER_HPP
 
 #include "core/network/IMessageHandler.hpp"
-#include "core/types/Connection.hpp"
 
 /*
- * Handles message operations for the ServerConnectionManager.
+ * Handles message operations for the ConnectionManager.
  */
-class ServerMessageHandler: public IMessageHandler
+class MessageHandler: public IMessageHandler
 {
 public:
   void dispatchMessage(
@@ -22,5 +21,5 @@ public:
   ) override;
 };
 
-#endif // CORE_NETWORK_SERVER_MESSAGE_HANDLER_HPP
+#endif // CORE_NETWORK_MESSAGE_HANDLER_HPP
 

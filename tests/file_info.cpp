@@ -1,11 +1,12 @@
 #include <iostream>
 #include <cstdlib>
 #include <cstring>
+#include <thread>
 
-#include "core/network/ClientMessageHandler.hpp"
+#include "core/network/MessageHandler.hpp"
+#include "core/network/ConnectionManager.hpp"
 #include "core/types/MessageHeaders.hpp"
 #include "core/types/MessageType.hpp"
-#include "core/network/Client.hpp"
 
 // Main entry point of the program
 int main(int argc, char* argv[])
@@ -16,8 +17,8 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  ClientMessageHandler client_message_handler;
-  Client client {client_message_handler};
+  MessageHandler message_handler;
+  ConnectionManager client {message_handler};
   int server_socket_descriptor = client.connect(argv[1], atoi(argv[2]));
 
   if (server_socket_descriptor < 0)
@@ -26,7 +27,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  client.start();
+  std::thread eventThread {&ConnectionManager::runEventLoop, &client};
 
   std::string file_name {argv[3]};
 
@@ -58,7 +59,9 @@ int main(int argc, char* argv[])
 
   client.disconnect(server_socket_descriptor);
 
-  client.stop();
+  client.stopEventLoop();
+
+  eventThread.join();
 
   return 0;
 }

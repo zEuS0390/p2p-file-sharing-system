@@ -2,11 +2,17 @@
 #define CORE_TYPES_EVENT_COMMAND_HPP
 
 #include <future>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
 #include "core/types/Endpoint.hpp"
 #include "core/types/MessageType.hpp"
+
+struct AddAllListenerSocketsEventCommand
+{
+  std::unordered_set<int> m_listen_fds;
+};
 
 struct AddConnectionEventCommand
 {
@@ -28,6 +34,7 @@ struct SendMessageEventCommand
 };
 
 using EventCommand = std::variant<
+  AddAllListenerSocketsEventCommand,
   AddConnectionEventCommand,
   RemoveConnectionEventCommand,
   SendMessageEventCommand

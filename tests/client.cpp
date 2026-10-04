@@ -7,9 +7,9 @@
 #include <atomic>
 #include <ios>
 
-#include "core/network/ClientMessageHandler.hpp"
+#include "core/network/MessageHandler.hpp"
+#include "core/network/ConnectionManager.hpp"
 #include "core/types/MessageType.hpp"
-#include "core/network/Client.hpp"
 
 std::atomic<bool> is_running {true};
 std::atomic<int> socket_descriptor {-1};
@@ -26,8 +26,8 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  ClientMessageHandler client_message_handler;
-  Client client {client_message_handler};
+  MessageHandler message_handler;
+  ConnectionManager client {message_handler};
 
   socket_descriptor.store(client.connect(argv[1], atoi(argv[2])));
 
@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
   std::cout << "Press enter to continue..." << std::endl;
   std::cin.get();
 
-  client.start();
+  std::thread evenThread {&ConnectionManager::runEventLoop, &client};
 
   std::thread sendThread {[&client, argv](){
     std::fstream file{argv[4], std::ios::in};
@@ -71,9 +71,11 @@ int main(int argc, char* argv[])
 
   client.disconnect(socket_descriptor);
 
-  client.stop();
+  client.stopEventLoop();
 
   sendThread.join();
+  evenThread.join();
 
   return 0;
 }
+

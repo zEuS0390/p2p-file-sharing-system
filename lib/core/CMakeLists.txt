@@ -1,14 +1,9 @@
 cmake_minimum_required(VERSION 3.15)
 
 set(NETWORK_SRC_FILES
-    "src/Peer.cpp"
-    "src/Client.cpp"
-    "src/Server.cpp"
     "src/ConnectionManager.cpp"
-    "src/ClientMessageHandler.cpp"
-    "src/ServerMessageHandler.cpp"
-    "src/ServerConnectionManager.cpp"
-    "src/ClientConnectionManager.cpp")
+    "src/MessageHandler.cpp"
+)
 
 add_library(core SHARED ${NETWORK_SRC_FILES})
 
