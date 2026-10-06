@@ -14,10 +14,14 @@ public:
     const char* data
   ) override;
   void queueMessage(
-    Connection& connection_type,
+    Connection& connection,
     const MessageType& message_type,
     const char* data,
     size_t data_size
+  ) override;
+  bool queueNextFileChunk(
+    Connection& connection,
+    std::uint64_t transfer_id
   ) override;
 };
 

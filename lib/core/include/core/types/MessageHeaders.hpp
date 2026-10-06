@@ -19,20 +19,27 @@ struct FileInfoHeader
   std::uint64_t file_size {};
 };
 
+struct FileUploadRequestHeader
+{
+  std::uint32_t filename_size {};
+  std::uint64_t file_size {};
+};
+
+struct FileUploadInfoHeader
+{
+  std::uint64_t transfer_id {};
+  std::uint32_t filename_size {};
+};
+
 struct FileRequestHeader
 {
-  uint32_t filename_size {};
+  std::uint32_t filename_size {};
 };
 
 struct FileChunkHeader
 {
   std::uint64_t transfer_id {};
   std::uint32_t chunk_size {};
-};
-
-struct FileAckHeader
-{
-  std::uint64_t transfer_id {};
 };
 
 struct FileEndHeader 
@@ -43,7 +50,7 @@ struct FileEndHeader
 struct FileErrorHeader
 {
   FileErrorCode error_code;
-  uint32_t message_size {};
+  std::uint32_t message_size {};
 };
 
 #endif // CORE_TYPES_MESSAGE_HEADER_HPP

@@ -7,7 +7,6 @@
 #include <memory>
 #include <atomic>
 #include <mutex>
-#include <array>
 #include <queue>
 #include <string>
 #include <unordered_set>

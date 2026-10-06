@@ -19,6 +19,10 @@ public:
     const char* data,
     size_t data_size
   ) = 0;
+  virtual bool queueNextFileChunk(
+    Connection& connection,
+    std::uint64_t transfer_id
+  ) = 0;
   virtual ~IMessageHandler() = default;
 };
 

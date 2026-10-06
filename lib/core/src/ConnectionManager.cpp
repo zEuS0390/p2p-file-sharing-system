@@ -153,17 +153,14 @@ void ConnectionManager::processCommand(SendMessageEventCommand& event_command)
 void ConnectionManager::processCommands() 
 {
   std::queue<EventCommand> event_commands;
-
   {
     std::lock_guard<std::mutex> lock(m_mutex);
     std::swap(event_commands, m_event_commands);
   }
-
   while (!event_commands.empty())
   {
     EventCommand event_command {std::move(event_commands.front())};
     event_commands.pop();
-
     std::visit(
       [&](auto& command)
       {
@@ -322,7 +319,7 @@ void ConnectionManager::runEventLoop()
       Connection& conn {*it->second};
       if (ev.events & EPOLLIN)
       {
-        constexpr std::uint16_t buffer_size {4096};
+        constexpr std::uint32_t buffer_size {1024 * 4};
         char receivedBuffer[buffer_size];
         long recv_status {recv(fd, receivedBuffer, sizeof(receivedBuffer)-1, 0)};
         if (recv_status > 0)
@@ -355,7 +352,6 @@ void ConnectionManager::runEventLoop()
         while (conn.send_offset < conn.send_buffer.size())
         {
           size_t remaining {conn.send_buffer.size() - conn.send_offset};
-
           long send_status {
             ::send(
               fd,
@@ -364,7 +360,6 @@ void ConnectionManager::runEventLoop()
               0
             )
           };
-
           if (send_status > 0)
           {
             conn.send_offset += send_status;
@@ -387,6 +382,14 @@ void ConnectionManager::runEventLoop()
         {
           conn.send_buffer.clear();
           conn.send_offset = 0;
+
+          if (!conn.outgoing_files.empty())
+          {
+            auto it {conn.outgoing_files.begin()};
+            if (m_message_handler.queueNextFileChunk(conn, it->first))
+              return;
+          }
+
           epoll_event ep_event {};
           ep_event.events = EPOLLIN;
           ep_event.data.fd = conn.socket_descriptor;

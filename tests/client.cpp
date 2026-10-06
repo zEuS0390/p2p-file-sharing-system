@@ -60,7 +60,10 @@ int main(int argc, char* argv[])
         1
       );
       if (send_status < 0)
+      {
         std::cout << "Error sending the message to server." << std::endl;
+        break;
+      }
       std::this_thread::sleep_for(std::chrono::milliseconds(std::stoi(argv[3])));
     }
   }};

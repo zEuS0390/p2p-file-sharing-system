@@ -1,5 +1,8 @@
+#include <chrono>
 #include <cstring>
+#include <ios>
 #include <iostream>
+#include <ostream>
 #include <string>
 #include <thread>
 
@@ -27,19 +30,30 @@ int main(int argc, const char* argv[])
   std::thread eventThread {&ConnectionManager::runEventLoop, &client};
 
   std::string file_name {argv[3]};
-  FileRequestHeader file_request_header;
-  file_request_header.filename_size = file_name.size();
 
-  std::vector<char> bytes {};
-  bytes.reserve(file_name.size() + sizeof(FileRequestHeader));
-  bytes.resize(file_name.size() + sizeof(FileRequestHeader));
-  std::memcpy(bytes.data(), &file_request_header, sizeof(FileRequestHeader));
-  std::memcpy(bytes.data() + sizeof(FileRequestHeader), file_name.data(), file_name.size());
+  std::ifstream input_file_stream {file_name, std::ios::binary | std::ios::ate};
+  if (!input_file_stream.is_open())
+  {
+    std::cerr << std::strerror(errno) << std::endl;
+    input_file_stream.close();
+    return 1;
+  }
+  const std::streamsize file_size {input_file_stream.tellg()};
+    input_file_stream.close();
+
+  FileUploadRequestHeader file_upload_request_header;
+  file_upload_request_header.filename_size = file_name.size();
+  file_upload_request_header.file_size = file_size;
+
+  std::vector<char> bytes;
+  bytes.resize(file_name.size() + sizeof(FileUploadRequestHeader));
+  std::memcpy(bytes.data(), &file_upload_request_header, sizeof(FileUploadRequestHeader));
+  std::memcpy(bytes.data() + sizeof(FileUploadRequestHeader), file_name.data(), file_name.size());
 
   int send_status {
     client.send(
         socket_descriptor,
-        MessageType::FILE_DOWNLOAD_REQUEST,
+        MessageType::FILE_UPLOAD_REQUEST,
         bytes.data(),
         bytes.size()
       )
@@ -50,7 +64,7 @@ int main(int argc, const char* argv[])
     std::cerr << strerror(errno) << std::endl;
     return 1;
   }
-  
+
   std::cout << "Press enter to stop ...";
   std::cin.get();
 
@@ -62,4 +76,5 @@ int main(int argc, const char* argv[])
 
   return 0;
 }
+
 
