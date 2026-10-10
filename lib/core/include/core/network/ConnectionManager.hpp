@@ -11,8 +11,8 @@
 #include <string>
 #include <unordered_set>
 
-#include "core/network/IMessageHandler.hpp"
 #include "core/network/IOMultiplexer.hpp"
+#include "core/network/MessageHandler.hpp"
 #include "core/types/Connection.hpp"
 #include "core/types/MessageType.hpp"
 #include "core/types/EventCommand.hpp"
@@ -25,10 +25,9 @@ class ConnectionManager
 private:
   static constexpr int MAX_EVENTS {64};
 protected:
-  IMessageHandler& m_message_handler;
+  MessageHandler& m_message_handler;
   IOMultiplexer m_io_multiplexer;
   std::mutex m_mutex;
-  std::atomic<bool> m_is_event_running;
   std::atomic<bool> m_is_listen_running;
   std::atomic<int> m_command_fd;
   std::unordered_set<int> m_listen_fds;
@@ -42,7 +41,8 @@ private:
   void processCommands();
   void parseIncomingMessage(Connection& connection);
 public:
-  explicit ConnectionManager(IMessageHandler& message_handler);
+  std::atomic<bool> m_is_event_running;
+  explicit ConnectionManager(MessageHandler& message_handler);
   ~ConnectionManager();
   void initListeners(std::uint16_t port);
   void startListening();

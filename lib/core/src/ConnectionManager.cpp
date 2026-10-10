@@ -19,17 +19,16 @@
 #include <queue>
 
 #include "core/network/ConnectionManager.hpp"
-#include "core/network/IMessageHandler.hpp"
 #include "core/types/Connection.hpp"
 #include "core/types/MessageHeaders.hpp"
 #include "core/types/EventCommand.hpp"
 
 // Constructor
-ConnectionManager::ConnectionManager(IMessageHandler& message_handler):
+ConnectionManager::ConnectionManager(MessageHandler& message_handler):
   m_message_handler{message_handler},
-  m_is_event_running{false},
   m_is_listen_running{false},
-  m_command_fd{-1}
+  m_command_fd{-1},
+  m_is_event_running{false}
 {
   m_command_fd = eventfd(0,EFD_NONBLOCK | EFD_CLOEXEC);
   if (m_command_fd == -1)
@@ -154,7 +153,7 @@ void ConnectionManager::processCommands()
 {
   std::queue<EventCommand> event_commands;
   {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard lock(m_mutex);
     std::swap(event_commands, m_event_commands);
   }
   while (!event_commands.empty())
@@ -245,7 +244,7 @@ void ConnectionManager::initListeners(std::uint16_t port)
     throw std::runtime_error("An error has occured for preparing the network addresses");
 
   {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard lock(m_mutex);
     m_event_commands.push(AddAllListenerSocketsEventCommand{listen_fds});
   }
   std::uint64_t value{1};
@@ -300,7 +299,7 @@ void ConnectionManager::runEventLoop()
             return;
           }
           {
-            std::lock_guard<std::mutex> lock(m_mutex);
+            std::lock_guard lock(m_mutex);
             m_event_commands.push(
               AddConnectionEventCommand{
                 client,
@@ -319,7 +318,7 @@ void ConnectionManager::runEventLoop()
       Connection& conn {*it->second};
       if (ev.events & EPOLLIN)
       {
-        constexpr std::uint32_t buffer_size {1024 * 4};
+        constexpr std::uint32_t buffer_size {1024 * 64};
         char receivedBuffer[buffer_size];
         long recv_status {recv(fd, receivedBuffer, sizeof(receivedBuffer)-1, 0)};
         if (recv_status > 0)
@@ -385,9 +384,17 @@ void ConnectionManager::runEventLoop()
 
           if (!conn.outgoing_files.empty())
           {
-            auto it {conn.outgoing_files.begin()};
-            if (m_message_handler.queueNextFileChunk(conn, it->first))
+            bool outgoing_files_not_finished {false};
+            for (auto& outgoing_file: conn.outgoing_files)
+            {
+                if (m_message_handler.queueNextFileChunk(conn, outgoing_file.first))
+                  outgoing_files_not_finished = true;
+            }
+            if (outgoing_files_not_finished)
               return;
+            // auto it {conn.outgoing_files.begin()};
+            // if (m_message_handler.queueNextFileChunk(conn, it->first))
+            //   return;
           }
 
           epoll_event ep_event {};
@@ -425,7 +432,7 @@ void ConnectionManager::addConnection(
 )
 {
   {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard lock(m_mutex);
     m_event_commands.push(
       AddConnectionEventCommand{
         socket_descriptor,
@@ -441,7 +448,7 @@ void ConnectionManager::addConnection(
 void ConnectionManager::removeConnection(int socket_descriptor)
 {
   {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard lock(m_mutex);
     m_event_commands.push(
       RemoveConnectionEventCommand{
         socket_descriptor
@@ -510,7 +517,7 @@ int ConnectionManager::connect(const std::string &hostname, int port)
       return -2;
 
   {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard lock(m_mutex);
     m_event_commands.push(
       AddConnectionEventCommand{
         server_socket_descriptor,
@@ -543,7 +550,7 @@ int ConnectionManager::send(
   std::future<int> future {result.get_future()};
 
   {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard lock(m_mutex);
     m_event_commands.push(
       SendMessageEventCommand{
         socket_descriptor,

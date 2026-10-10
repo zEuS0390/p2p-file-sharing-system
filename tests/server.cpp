@@ -1,11 +1,19 @@
 #include <iostream>
 #include <string>
-#include <thread>
 #include <unistd.h>
 #include <csignal>
 
 #include "core/network/MessageHandler.hpp"
 #include "core/network/ConnectionManager.hpp"
+
+static ConnectionManager* server {nullptr};
+
+volatile std::sig_atomic_t shutdown_requested {0};
+
+void handle_signal(int signal_number)
+{
+  server->m_is_event_running = 0;
+}
 
 // Main entry point of the program
 int main(int argc, char* argv[])
@@ -16,36 +24,17 @@ int main(int argc, char* argv[])
     return 1;
   }
 
+  std::signal(SIGTERM, handle_signal);
+  std::signal(SIGINT, handle_signal);
+
   MessageHandler message_handler;
-  ConnectionManager server {message_handler};
-
-  std::thread eventThread {&ConnectionManager::runEventLoop, &server};
-  std::cout << "Starting listener on port " << argv[1] << std::endl;
-  server.initListeners(std::stoi(argv[1]));
-  server.startListening(); // EXAMPLE SOCKET ID 5
-
-  std::cout << "Press any key to pause the listener ..." << std::endl;
-  std::cin.get();
-  std::cout << "Pausing listener." << std::endl;
-
-  server.stopListening(); // EXAMPLE SOCKET ID 5 DISABLES I/O COMMUNICATION BUT NOT CLOSED
-  std::cout << "Listener paused." << std::endl;
-
-  std::cout << "Press any key to resume the listener ..." << std::endl;
-  std::cin.get();
-  std::cout << "Resuming listener." << std::endl;
-
-  server.startListening(); // EXAMPLE SOCKET ID: 9
-  std::cout << "Listener resumed." << std::endl;
-
-  std::cout << "Press any key to stop the server ..." << std::endl;
-  std::cin.get();
-
-  server.stopListening(); // EXAMPLE SOCKET ID 9 DISABLES I/O COMMUNICATION BUT NOT CLOSED
-  server.stopEventLoop();
-
-  eventThread.join();
-
+  server = new ConnectionManager{message_handler};
+  server->initListeners(std::stoi(argv[1]));
+  server->startListening();
+  server->runEventLoop();
+  server->stopListening();
+  server->stopEventLoop();
+  delete server;
   return 0;
 }
 

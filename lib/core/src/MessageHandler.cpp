@@ -1,3 +1,4 @@
+#include <string_view>
 #include <sys/socket.h>
 #include <filesystem>
 #include <cstring>
@@ -14,27 +15,36 @@
 #include "core/types/Connection.hpp"
 #include "core/types/OutgoingFileTransfer.hpp"
 
-void MessageHandler::dispatchMessage(
- Connection& connection,
- const char* data
-)
+void MessageHandler::dispatchMessage(Connection& connection, const char* data)
 {
   switch (connection.current_header.type)
   {
-    case MessageType::MESSAGE:
+    case MessageType::MESSAGE_REQUEST:
     {
-      queueMessage(
-        connection,
-        MessageType::MESSAGE_RESPONSE,
-        data,
-        connection.current_header.payload_size
-      );
+      MessageRequestHeader message_request_header {};
+      std::memcpy(&message_request_header, data, sizeof(MessageRequestHeader));
+
+      MessageResponseHeader message_reponse_header {
+        .request_id = message_request_header.request_id,
+        .message_size = message_request_header.message_size
+      };
+
+      std::vector<char> payload (sizeof(MessageResponseHeader) + message_request_header.message_size);
+      std::memcpy(payload.data(), &message_reponse_header, sizeof(MessageResponseHeader));
+      std::memcpy(payload.data()+sizeof(MessageResponseHeader), data+sizeof(MessageRequestHeader), message_reponse_header.message_size);
+
+      queueMessage(connection, MessageType::MESSAGE_RESPONSE, payload.data(), payload.size());
+
       break;
     }
     case MessageType::MESSAGE_RESPONSE:
     {
-      std::string msg {data, connection.current_header.payload_size};
-      std::cout << msg << std::flush; 
+      MessageResponseHeader message_reponse_header {};
+      std::memcpy(&message_reponse_header, data, connection.current_header.payload_size);
+      std::string_view str_view {data, connection.current_header.payload_size};
+      auto& handler = std::get<message_handler_detail::HandlerSlot<MessageType::MESSAGE_RESPONSE> >(handlers).function;
+      if (handler)
+        handler(message_reponse_header.request_id, str_view);
       break;
     }
     case MessageType::FILE_INFO_REQUEST:
@@ -52,8 +62,7 @@ void MessageHandler::dispatchMessage(
         FileErrorHeader file_error_header;
         file_error_header.error_code = FileErrorCode::FILE_GENERIC_ERROR;
         file_error_header.message_size = buffer.size();
-        std::vector<char> payload;
-        payload.resize(sizeof(FileErrorHeader) + buffer.size());
+        std::vector<char> payload (sizeof(FileErrorHeader) + buffer.size());
         std::memcpy(payload.data(), &file_error_header, sizeof(FileErrorHeader));
         std::memcpy(payload.data() + sizeof(FileErrorHeader), buffer.c_str(), buffer.size());
         queueMessage(connection, MessageType::FILE_ERROR, payload.data(), payload.size());
@@ -69,12 +78,7 @@ void MessageHandler::dispatchMessage(
       message += "Filename Byte Size: " + std::to_string(file_name_str.size()) + "\n";
       message += "File Byte Size: " + std::to_string(size) + "\n";
 
-      queueMessage(
-        connection,
-        MessageType::MESSAGE_RESPONSE,
-        message.c_str(),
-        message.size()
-      );
+      queueMessage(connection, MessageType::MESSAGE_RESPONSE, message.c_str(), message.size());
 
       break;
     }
@@ -89,10 +93,10 @@ void MessageHandler::dispatchMessage(
     }
     case MessageType::FILE_DOWNLOAD_REQUEST:
     {
-      FileRequestHeader file_request_header {};
-      std::memcpy(&file_request_header, data, sizeof(FileRequestHeader));
-      const char* file_name {data + sizeof(FileRequestHeader)};
-      std::string file_name_str {file_name, file_request_header.filename_size};
+      FileDownloadRequestHeader file_download_request_header {};
+      std::memcpy(&file_download_request_header, data, sizeof(FileDownloadRequestHeader));
+      const char* file_name {data + sizeof(FileDownloadRequestHeader)};
+      std::string file_name_str {file_name, file_download_request_header.filename_size};
 
       // Verify the file 
       std::ifstream input_file_stream {file_name_str, std::ios::binary | std::ios::ate};
@@ -102,9 +106,7 @@ void MessageHandler::dispatchMessage(
         FileErrorHeader file_error_header {};
         file_error_header.error_code = FileErrorCode::FILE_GENERIC_ERROR;
         file_error_header.message_size = error_message.size();
-        std::vector<char> payload;
-        payload.reserve(error_message.size() + sizeof(FileErrorHeader));
-        payload.resize(error_message.size() + sizeof(FileErrorHeader));
+        std::vector<char> payload (error_message.size() + sizeof(FileErrorHeader));
         std::memcpy(payload.data(), &file_error_header, sizeof(FileErrorHeader));
         std::memcpy(payload.data() + sizeof(FileErrorHeader), error_message.data(), error_message.size());
         queueMessage(connection, MessageType::FILE_ERROR, payload.data(), payload.size());
@@ -112,59 +114,55 @@ void MessageHandler::dispatchMessage(
         break;
       }
 
-      // Get the file size
-      const std::streamsize file_size {input_file_stream.tellg()};
+      // Get the file size. Implicitply convert from std::streamsize to std::uint64_t
+      const std::uint64_t file_size = input_file_stream.tellg();
 
       // Clear error / EOF flags and move pointer back to start
       input_file_stream.clear();
       input_file_stream.seekg(0, std::ios::beg);
 
       const std::uint64_t transfer_id {++connection.transfer_id};
-      OutgoingFileTransfer outgoing_file;
-      outgoing_file.file = std::move(input_file_stream);
-      outgoing_file.file_size = file_size;
-      outgoing_file.filename = file_name_str;
+      OutgoingFileTransfer outgoing_file {
+        .file = std::move(input_file_stream),
+        .filename = file_name_str,
+        .file_size = file_size
+      };
       connection.outgoing_files.emplace(transfer_id, std::move(outgoing_file));
 
-      FileInfoHeader file_info_header;
-      file_info_header.transfer_id = transfer_id;
-      file_info_header.filename_size = file_request_header.filename_size;
-      file_info_header.file_size = file_size;
+      FileDownloadResponseHeader file_download_response_header {
+        .request_id = file_download_request_header.request_id,
+        .transfer_id = transfer_id,
+        .filename_size = file_download_request_header.filename_size,
+        .file_size = file_size
+      };
 
-      std::vector<char> payload;
-      payload.resize(sizeof(FileInfoHeader) + file_name_str.size());
-      std::memcpy(payload.data(), &file_info_header, sizeof(FileInfoHeader));
-      std::memcpy(payload.data() + sizeof(FileInfoHeader), file_name_str.data(), file_name_str.size());
-      queueMessage(
-        connection,
-        MessageType::FILE_DOWNLOAD_INFO,
-        payload.data(),
-        payload.size()
-      );
+      std::vector<char> payload (sizeof(FileDownloadResponseHeader) + file_download_response_header.filename_size);
+      std::memcpy(payload.data(), &file_download_response_header, sizeof(FileDownloadResponseHeader));
+      std::memcpy(payload.data()+sizeof(FileDownloadResponseHeader), file_name_str.c_str(), file_download_response_header.filename_size);
+      queueMessage(connection, MessageType::FILE_DOWNLOAD_RESPONSE, payload.data(), payload.size());
 
       break;
     }
-    case MessageType::FILE_DOWNLOAD_INFO:
+    case MessageType::FILE_DOWNLOAD_RESPONSE:
     {
-      FileInfoHeader file_info_header {};
-      std::memcpy(&file_info_header, data, sizeof(FileInfoHeader));
-      const char* file_name {data + sizeof(FileInfoHeader)};
-      std::string file_name_str {file_name, file_info_header.filename_size};
-
-      std::cout << "Filename: " << file_name_str << std::endl;
-      std::cout << "Filename Byte Size: " << file_info_header.filename_size << std::endl;
-      std::cout << "File Byte Size: " << file_info_header.file_size << std::endl;
-      std::cout << "File Transfer ID: " << file_info_header.transfer_id << std::endl;
+      FileDownloadResponseHeader file_download_response_header {};
+      std::memcpy(&file_download_response_header, data, sizeof(FileDownloadResponseHeader));
+      const char* file_name {data + sizeof(FileDownloadResponseHeader)};
+      std::string file_name_str {file_name, file_download_response_header.filename_size};
 
       std::filesystem::path file_path {file_name_str};
       std::string output_file_name_str {file_path.filename().string()};
       IncomingFileTransfer incominng_file_transfer;
       incominng_file_transfer.file.open(output_file_name_str, std::ios::binary | std::ios::trunc);
       incominng_file_transfer.filename = output_file_name_str;
-      incominng_file_transfer.file_size = file_info_header.file_size;
+      incominng_file_transfer.file_size = file_download_response_header.file_size;
       incominng_file_transfer.bytes_received = 0;
 
-      connection.incoming_files.emplace(file_info_header.transfer_id, std::move(incominng_file_transfer));
+      connection.incoming_files.emplace(file_download_response_header.transfer_id, std::move(incominng_file_transfer));
+
+      auto& handler = std::get<message_handler_detail::HandlerSlot<MessageType::FILE_DOWNLOAD_RESPONSE> >(handlers).function;
+      if (handler)
+        handler(file_download_response_header.transfer_id, file_download_response_header.file_size);
 
       break;
     }
@@ -183,9 +181,14 @@ void MessageHandler::dispatchMessage(
 
       if (!output_file_stream.is_open())
       {
-        std::cerr << "FILE_UPLOAD_REQUEST" << std::strerror(errno) << std::endl;
-        // Send a request to client to remove the outgoing file for this specific transfer_id since it encounters an error.
-        // ...
+        std::string error_message {std::strerror(errno)};
+        FileErrorHeader file_error_header {};
+        file_error_header.error_code = FileErrorCode::FILE_GENERIC_ERROR;
+        file_error_header.message_size = error_message.size();
+        std::vector<char> payload (error_message.size() + sizeof(FileErrorHeader));
+        std::memcpy(payload.data(), &file_error_header, sizeof(FileErrorHeader));
+        std::memcpy(payload.data() + sizeof(FileErrorHeader), error_message.data(), error_message.size());
+        queueMessage(connection, MessageType::FILE_ERROR, payload.data(), payload.size());
         output_file_stream.close();
         break;
       }
@@ -198,31 +201,34 @@ void MessageHandler::dispatchMessage(
 
       connection.incoming_files.emplace(transfer_id, std::move(incoming_file));
 
-      FileUploadInfoHeader file_upload_info_header;
+      FileUploadResponseHeader file_upload_info_header;
       file_upload_info_header.transfer_id = transfer_id;
       file_upload_info_header.filename_size = file_name_str.size();
-      std::vector<char> payload;
-      payload.resize(sizeof(FileUploadInfoHeader) + file_upload_info_header.filename_size);
-      std::memcpy(payload.data(), &file_upload_info_header, sizeof(FileUploadInfoHeader));
-      std::memcpy(payload.data()+sizeof(FileUploadInfoHeader), file_name_str.data(), file_name_str.size());
+      std::vector<char> payload (sizeof(FileUploadResponseHeader) + file_upload_info_header.filename_size);
+      std::memcpy(payload.data(), &file_upload_info_header, sizeof(FileUploadResponseHeader));
+      std::memcpy(payload.data()+sizeof(FileUploadResponseHeader), file_name_str.data(), file_name_str.size());
       queueMessage(connection, MessageType::FILE_UPLOAD_INFO, payload.data(), payload.size());
 
       break;
     }
-    case MessageType::FILE_UPLOAD_INFO: // Client
+    case MessageType::FILE_UPLOAD_INFO:
     {
-      FileUploadInfoHeader file_info_header {};
-      std::memcpy(&file_info_header, data, sizeof(FileUploadInfoHeader));
-      const char* file_name {data + sizeof(FileUploadInfoHeader)};
+      FileUploadResponseHeader file_info_header {};
+      std::memcpy(&file_info_header, data, sizeof(FileUploadResponseHeader));
+      const char* file_name {data + sizeof(FileUploadResponseHeader)};
       std::string file_name_str {file_name, file_info_header.filename_size};
       std::ifstream input_file_stream {file_name_str, std::ios::binary | std::ios::ate};
 
       if (!input_file_stream.is_open())
       {
-        std::cerr << "FILE_UPLOAD_INFO: " << file_name_str << std::endl;
-        std::cerr << "FILE_UPLOAD_INFO: " << std::strerror(errno) << std::endl;
-        // Send a request to server to remove the incoming file for this specific transfer_id since it encounters an error.
-        // ...
+        std::string error_message {std::strerror(errno)};
+        FileErrorHeader file_error_header {};
+        file_error_header.error_code = FileErrorCode::FILE_GENERIC_ERROR;
+        file_error_header.message_size = error_message.size();
+        std::vector<char> payload (error_message.size() + sizeof(FileErrorHeader));
+        std::memcpy(payload.data(), &file_error_header, sizeof(FileErrorHeader));
+        std::memcpy(payload.data() + sizeof(FileErrorHeader), error_message.data(), error_message.size());
+        queueMessage(connection, MessageType::FILE_ERROR, payload.data(), payload.size());
         input_file_stream.close();
         break;
       }
@@ -258,27 +264,13 @@ void MessageHandler::dispatchMessage(
         incoming_file.file.write(file_chunk, file_chunk_header.chunk_size);
         incoming_file.bytes_received += file_chunk_header.chunk_size;
 
-        // NOTE: This is just for displaying one progress for the incoming file transfer.
-        std::cout << "\r\033[2K"
-                  << incoming_file.bytes_received
-                  << "/"
-                  << incoming_file.file_size
-                  << " - "
-                  << ((static_cast<double>(incoming_file.bytes_received)/static_cast<double>(incoming_file.file_size))*100)
-                  << "%"
-                  << std::fixed
-                  << std::setprecision(2)
-                  << std::flush;
-
         if (incoming_file.bytes_received == incoming_file.file_size)
         {
-          std::cout << "\nFile download complete.\n" << std::flush;
           incoming_file.file.close();
           connection.incoming_files.erase(it);
           FileEndHeader file_end_header {};
           file_end_header.transfer_id = file_chunk_header.transfer_id;
-          std::vector<char> payload;
-          payload.resize(sizeof(FileEndHeader));
+          std::vector<char> payload (sizeof(FileEndHeader));
           std::memcpy(payload.data(), &file_end_header, sizeof(FileEndHeader));
           queueMessage(
             connection,
@@ -288,6 +280,11 @@ void MessageHandler::dispatchMessage(
           );
         }
       }
+
+      auto& handler = std::get<message_handler_detail::HandlerSlot<MessageType::FILE_CHUNK> >(handlers).function;
+      if (handler)
+        handler(file_chunk_header.transfer_id, file_chunk_header.chunk_size);
+
       break;
     }
     case MessageType::FILE_END:
@@ -297,7 +294,6 @@ void MessageHandler::dispatchMessage(
       auto it {connection.outgoing_files.find(file_end_header.transfer_id)};
       if (it != connection.outgoing_files.end())
       {
-        std::cout << "File transfer complete." << std::endl;
         OutgoingFileTransfer& outgoing_file {it->second};
         outgoing_file.file.close();
         connection.outgoing_files.erase(it);
@@ -333,22 +329,20 @@ bool MessageHandler::queueNextFileChunk(
   auto it {connection.outgoing_files.find(transfer_id)};
   if (it == connection.outgoing_files.end())
     return false;
-  constexpr std::uint64_t MAX_CHUNK_SIZE {1024 * 4};
+  constexpr std::uint64_t MAX_CHUNK_SIZE {1024 * 64};
   OutgoingFileTransfer& outgoing_file {it->second};
   if (outgoing_file.bytes_sent >= outgoing_file.file_size)
   {
     FileEndHeader file_end_header {};
     file_end_header.transfer_id = transfer_id;
-    std::vector<char> payload;
-    payload.resize(sizeof(FileEndHeader));
+    std::vector<char> payload (sizeof(FileEndHeader));
     std::memcpy(payload.data(), &file_end_header, sizeof(FileEndHeader));
     queueMessage(connection, MessageType::FILE_END, payload.data(), payload.size());
     return true;
   }
   const std::uint64_t remaining {outgoing_file.file_size - outgoing_file.bytes_sent};
   const std::uint64_t chunk_size {std::min(remaining, MAX_CHUNK_SIZE)};
-  std::vector<char> payload;
-  payload.resize(sizeof(FileChunkHeader) + chunk_size);
+  std::vector<char> payload (sizeof(FileChunkHeader) + chunk_size);
   FileChunkHeader file_chunk_header {};
   file_chunk_header.transfer_id = transfer_id;
   file_chunk_header.chunk_size = chunk_size; 

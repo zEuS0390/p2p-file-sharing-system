@@ -9,11 +9,30 @@
 struct MessageHeader
 {
   MessageType type;
-  uint32_t payload_size {};
+  std::uint32_t payload_size {};
 };
 
-struct FileInfoHeader
+struct MessageRequestHeader
 {
+  std::uint64_t request_id {};
+  std::uint64_t message_size {};
+};
+
+struct MessageResponseHeader 
+{
+  std::uint64_t request_id {};
+  std::uint64_t message_size {};
+};
+
+struct FileDownloadRequestHeader
+{
+  std::uint64_t request_id {};
+  std::uint32_t filename_size {};
+};
+
+struct FileDownloadResponseHeader
+{
+  std::uint64_t request_id {};
   std::uint64_t transfer_id {};
   std::uint32_t filename_size {};
   std::uint64_t file_size {};
@@ -25,7 +44,7 @@ struct FileUploadRequestHeader
   std::uint64_t file_size {};
 };
 
-struct FileUploadInfoHeader
+struct FileUploadResponseHeader 
 {
   std::uint64_t transfer_id {};
   std::uint32_t filename_size {};

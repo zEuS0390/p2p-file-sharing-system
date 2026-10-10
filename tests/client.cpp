@@ -1,7 +1,10 @@
+#include <cstdint>
 #include <iostream>
 #include <cstdlib>
+#include <string>
 #include <cstring>
 #include <fstream>
+#include <string_view>
 #include <thread>
 #include <chrono>
 #include <atomic>
@@ -9,6 +12,7 @@
 
 #include "core/network/MessageHandler.hpp"
 #include "core/network/ConnectionManager.hpp"
+#include "core/types/MessageHeaders.hpp"
 #include "core/types/MessageType.hpp"
 
 std::atomic<bool> is_running {true};
@@ -27,6 +31,14 @@ int main(int argc, char* argv[])
   }
 
   MessageHandler message_handler;
+
+  message_handler.on<MessageType::MESSAGE_RESPONSE>(
+    [](std::uint64_t request_id, std::string_view str_view)
+    {
+      std::cout << str_view << std::flush;
+    }
+  );
+
   ConnectionManager client {message_handler};
 
   socket_descriptor.store(client.connect(argv[1], atoi(argv[2])));
@@ -52,18 +64,29 @@ int main(int argc, char* argv[])
     char ch;
     while (file.get(ch) && is_running.load())
     {
+      MessageRequestHeader message_request_header {};
+      message_request_header.request_id = 1;
+      message_request_header.message_size = 1;
+
+      std::vector<char> payload;
+      payload.resize(sizeof(MessageRequestHeader) + 1);
+      std::memcpy(payload.data(), &message_request_header, sizeof(MessageRequestHeader));
+      std::memcpy(payload.data()+sizeof(MessageRequestHeader), std::string(1, ch).c_str(), 1);
+
       int send_status;
       send_status = client.send(
         socket_descriptor,
-        MessageType::MESSAGE,
-        std::string(1, ch).c_str(),
-        1
+        MessageType::MESSAGE_REQUEST,
+        payload.data(),
+        payload.size()
       );
+
       if (send_status < 0)
       {
         std::cout << "Error sending the message to server." << std::endl;
         break;
       }
+
       std::this_thread::sleep_for(std::chrono::milliseconds(std::stoi(argv[3])));
     }
   }};

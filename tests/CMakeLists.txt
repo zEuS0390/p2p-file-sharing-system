@@ -6,6 +6,7 @@ add_executable(peer "${CMAKE_CURRENT_SOURCE_DIR}/peer.cpp")
 add_executable(filedownload "${CMAKE_CURRENT_SOURCE_DIR}/file_download.cpp")
 add_executable(fileupload "${CMAKE_CURRENT_SOURCE_DIR}/file_upload.cpp")
 add_executable(fileinfo "${CMAKE_CURRENT_SOURCE_DIR}/file_info.cpp")
+add_executable(multiplefiledownloads "${CMAKE_CURRENT_SOURCE_DIR}/multiple_file_downloads.cpp")
 
 set_target_properties(server PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
@@ -19,6 +20,8 @@ set_target_properties(fileinfo PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 set_target_properties(fileupload PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
+set_target_properties(multiplefiledownloads PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 
 target_link_libraries(server PRIVATE core)
 target_link_libraries(client PRIVATE core)
@@ -26,3 +29,4 @@ target_link_libraries(peer PRIVATE core)
 target_link_libraries(filedownload PRIVATE core)
 target_link_libraries(fileupload PRIVATE core)
 target_link_libraries(fileinfo PRIVATE core)
+target_link_libraries(multiplefiledownloads PRIVATE core)

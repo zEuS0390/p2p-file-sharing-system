@@ -6,6 +6,7 @@ project(p2p_network_system VERSION 1.0.0)
 
 # Set C++ compilation flags
 # set(CMAKE_CXX_FLAGS "-fsanitize=address,undefined -Wall -Wextra -g")
+set(CMAKE_CXX_STANDARD 20)
 
 # Set the full version name of the project
 set(PROJECT_VERSION_FULL "${PROJECT_VERSION}-beta")

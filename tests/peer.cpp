@@ -2,10 +2,12 @@
 #include <fstream>
 #include <string>
 #include <atomic>
+#include <string_view>
 #include <thread>
 
 #include "core/network/MessageHandler.hpp"
 #include "core/network/ConnectionManager.hpp"
+#include "core/types/MessageHeaders.hpp"
 
 std::atomic<bool> is_running {true};
 std::atomic<int> socket_descriptor {-1};
@@ -20,9 +22,17 @@ int main(int argc, char* argv[])
   }
 
   MessageHandler message_handler;
-  ConnectionManager peer{message_handler};
+  ConnectionManager peer {message_handler};
+
+  message_handler.on<MessageType::MESSAGE_RESPONSE>(
+    [](std::uint64_t, std::string_view msg)
+    {
+      std::cout << msg << std::flush;
+    }
+  );
 
   std::thread peerEventThread {&ConnectionManager::runEventLoop, &peer};
+
   peer.initListeners(std::stoi(argv[1]));
   peer.startListening();
 
@@ -46,13 +56,23 @@ int main(int argc, char* argv[])
     char ch;
     while (file.get(ch) && is_running.load())
     {
+      MessageRequestHeader message_request_header {};
+      message_request_header.request_id = 1;
+      message_request_header.message_size = 1;
+
+      std::vector<char> payload;
+      payload.resize(sizeof(MessageRequestHeader) + 1);
+      std::memcpy(payload.data(), &message_request_header, sizeof(MessageRequestHeader));
+      std::memcpy(payload.data()+sizeof(MessageRequestHeader), std::string(1, ch).c_str(), 1);
+
       int send_status;
       send_status = peer.send(
         socket_descriptor,
-        MessageType::MESSAGE,
-        std::string(1, ch).c_str(),
-        1
+        MessageType::MESSAGE_REQUEST,
+        payload.data(),
+        payload.size()
       );
+
       if (send_status < 0)
         std::cout << "Error sending the message to server." << std::endl;
       std::this_thread::sleep_for(std::chrono::milliseconds(std::stoi(argv[2])));
