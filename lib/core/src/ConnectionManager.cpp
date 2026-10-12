@@ -351,7 +351,7 @@ void ConnectionManager::runEventLoop()
         while (conn.send_offset < conn.send_buffer.size())
         {
           size_t remaining {conn.send_buffer.size() - conn.send_offset};
-          long send_status {
+          ssize_t send_status {
             ::send(
               fd,
               conn.send_buffer.data() + conn.send_offset,
@@ -363,6 +363,10 @@ void ConnectionManager::runEventLoop()
           {
             conn.send_offset += send_status;
             continue;
+          }
+          if (send_status == 0)
+          {
+            break;
           }
           if (send_status == -1)
           {

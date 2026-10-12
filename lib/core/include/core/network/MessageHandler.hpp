@@ -27,9 +27,27 @@ namespace message_handler_detail
   };
 
   template <>
+  struct MessageTraits<MessageType::FILE_UPLOAD_RESPONSE>
+  {
+    using Handler = std::function<void(std::uint64_t)>;
+  };
+
+  template <>
+  struct MessageTraits<MessageType::FILE_UPLOAD_PROGRESS>
+  {
+    using Handler = std::function<void(std::uint64_t, std::uint64_t, std::uint64_t)>;
+  };
+
+  template <>
   struct MessageTraits<MessageType::FILE_CHUNK>
   {
     using Handler = std::function<void(std::uint64_t, std::uint64_t)>;
+  };
+
+  template <>
+  struct MessageTraits<MessageType::FILE_ERROR>
+  {
+    using Handler = std::function<void(std::uint64_t, std::string_view)>;
   };
 
   template <MessageType T>
@@ -47,16 +65,19 @@ class MessageHandler
 {
 private:
 
-
   using Handlers = std::tuple<
     message_handler_detail::HandlerSlot<MessageType::MESSAGE_RESPONSE>,
     message_handler_detail::HandlerSlot<MessageType::FILE_DOWNLOAD_RESPONSE>,
-    message_handler_detail::HandlerSlot<MessageType::FILE_CHUNK>
+    message_handler_detail::HandlerSlot<MessageType::FILE_UPLOAD_RESPONSE>,
+    message_handler_detail::HandlerSlot<MessageType::FILE_UPLOAD_PROGRESS>,
+    message_handler_detail::HandlerSlot<MessageType::FILE_CHUNK>,
+    message_handler_detail::HandlerSlot<MessageType::FILE_ERROR>
   >;
 
   Handlers handlers;
 
 public:
+  void appendBytes(std::vector<char>& buffer, const void* data, std::size_t size_t);
   void dispatchMessage(Connection& connection, const char* data);
   void queueMessage(Connection& connection, const MessageType& message_type, const char* data, size_t data_size);
   bool queueNextFileChunk(Connection& connection, std::uint64_t transfer_id);

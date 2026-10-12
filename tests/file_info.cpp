@@ -19,6 +19,21 @@ int main(int argc, char* argv[])
 
   MessageHandler message_handler;
   ConnectionManager client {message_handler};
+
+  message_handler.on<MessageType::MESSAGE_RESPONSE>(
+    [](std::uint64_t, std::string_view msg)
+    {
+      std::cout << msg << std::flush;
+    }
+  );
+
+  message_handler.on<MessageType::FILE_ERROR>(
+    [](std::uint64_t, std::string_view msg)
+    {
+      std::cout << msg << std::flush;
+    }
+  );
+
   int server_socket_descriptor = client.connect(argv[1], atoi(argv[2]));
 
   if (server_socket_descriptor < 0)
@@ -31,8 +46,7 @@ int main(int argc, char* argv[])
 
   std::string file_name {argv[3]};
 
-  FileRequestHeader file_request_header;
-  file_request_header.filename_size = file_name.size();
+  FileRequestHeader file_request_header{file_name.size()};
 
   std::vector<char> payload;
   payload.reserve(sizeof(FileRequestHeader) + file_name.size());

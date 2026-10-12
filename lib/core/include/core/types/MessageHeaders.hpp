@@ -8,8 +8,8 @@
 
 struct MessageHeader
 {
+  std::size_t payload_size {};
   MessageType type;
-  std::uint32_t payload_size {};
 };
 
 struct MessageRequestHeader
@@ -52,13 +52,13 @@ struct FileUploadResponseHeader
 
 struct FileRequestHeader
 {
-  std::uint32_t filename_size {};
+  std::size_t filename_size {};
 };
 
 struct FileChunkHeader
 {
   std::uint64_t transfer_id {};
-  std::uint32_t chunk_size {};
+  std::uint64_t chunk_size {};
 };
 
 struct FileEndHeader 
@@ -68,8 +68,9 @@ struct FileEndHeader
 
 struct FileErrorHeader
 {
+  std::uint64_t transfer_id {0};
   FileErrorCode error_code;
-  std::uint32_t message_size {};
+  std::uint64_t message_size {0};
 };
 
 #endif // CORE_TYPES_MESSAGE_HEADER_HPP

@@ -6,6 +6,7 @@
 #include <csignal>
 #include <cstring>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <cstdint>
 #include <unordered_map>
@@ -62,6 +63,13 @@ int main(int argc, const char** argv)
     }
   );
 
+  message_handler.on<MessageType::FILE_ERROR>(
+    [](std::uint64_t transfer_id, std::string_view msg)
+    {
+      std::cout << msg << std::endl;
+    }
+  );
+
   std::jthread evenThread {&ConnectionManager::runEventLoop, &client};
 
   int fd {client.connect(argv[1], std::stoi(argv[2]))};
@@ -69,6 +77,7 @@ int main(int argc, const char** argv)
   if (fd < 0)
   {
     std::cerr << "Failed to connect." << std::endl;
+    client.stopEventLoop();
     return 1;
   }
 
