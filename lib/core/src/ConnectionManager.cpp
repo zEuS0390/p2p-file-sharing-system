@@ -21,7 +21,7 @@
 #include "core/network/ConnectionManager.hpp"
 #include "core/types/Connection.hpp"
 #include "core/types/MessageHeaders.hpp"
-#include "core/types/EventCommand.hpp"
+#include "core/types/Command.hpp"
 
 // Constructor
 ConnectionManager::ConnectionManager(MessageHandler& message_handler):
@@ -92,31 +92,31 @@ void ConnectionManager::parseIncomingMessage(Connection& connection)
   }
 }
 
-void ConnectionManager::processCommand(AddAllListenerSocketsEventCommand& event_command)
+void ConnectionManager::processCommand(Command::AddAllListenerSockets& command)
 {
-  if (event_command.m_listen_fds.empty())
+  if (command.m_listen_fds.empty())
     return;
-  std::swap(m_listen_fds, event_command.m_listen_fds);
+  std::swap(m_listen_fds, command.m_listen_fds);
   for (const int& listen_fd: m_listen_fds)
     if (m_io_multiplexer.addFD(listen_fd) < 0)
       std::cout << "eventfd: couldn't add command fd to epoll.\n" << std::flush;
 }
 
-void ConnectionManager::processCommand(AddConnectionEventCommand& event_command)
+void ConnectionManager::processCommand(Command::AddConnection& command)
 {
   std::unique_ptr<Connection> connection {std::make_unique<Connection>()};
-  connection->endpoint = event_command.endpoint;
-  connection->socket_descriptor = event_command.m_socket_descriptor;
-  m_io_multiplexer.addFD(event_command.m_socket_descriptor);
+  connection->endpoint = command.endpoint;
+  connection->socket_descriptor = command.m_socket_descriptor;
+  m_io_multiplexer.addFD(command.m_socket_descriptor);
   m_connections.emplace(
-      event_command.m_socket_descriptor,
+      command.m_socket_descriptor,
       std::move(connection)
   );
 }
 
-void ConnectionManager::processCommand(RemoveConnectionEventCommand& event_command)
+void ConnectionManager::processCommand(Command::RemoveConnection& command)
 {
-  auto it = m_connections.find(event_command.m_socket_descriptor);
+  auto it = m_connections.find(command.m_socket_descriptor);
   if (it == m_connections.end())
     return;
   Connection& conn{*it->second};
@@ -124,20 +124,20 @@ void ConnectionManager::processCommand(RemoveConnectionEventCommand& event_comma
   m_connections.erase(it);
 }
 
-void ConnectionManager::processCommand(SendMessageEventCommand& event_command)
+void ConnectionManager::processCommand(Command::SendMessage& command)
 {
-  auto it = m_connections.find(event_command.m_socket_descriptor);
+  auto it = m_connections.find(command.m_socket_descriptor);
   if (it == m_connections.end())
   {
-    event_command.result.set_value(-1);
+    command.result.set_value(-1);
     return;
   }
   Connection& conn{*it->second};
   m_message_handler.queueMessage(
     conn,
-    event_command.m_message_type,
-    event_command.m_payload.data(),
-    event_command.m_payload.size()
+    command.m_message_type,
+    command.m_payload.data(),
+    command.m_payload.size()
   );
   epoll_event ep_event {};
   ep_event.events = EPOLLIN;
@@ -145,27 +145,26 @@ void ConnectionManager::processCommand(SendMessageEventCommand& event_command)
   if (conn.send_offset < conn.send_buffer.size())
     ep_event.events |= EPOLLOUT;
   m_io_multiplexer.modifyFDSettings(conn.socket_descriptor, ep_event);
-
-  event_command.result.set_value(0);
+  command.result.set_value(0);
 }
 
 void ConnectionManager::processCommands() 
 {
-  std::queue<EventCommand> event_commands;
+  std::queue<Command::Type> commands;
   {
     std::lock_guard lock(m_mutex);
-    std::swap(event_commands, m_event_commands);
+    std::swap(commands, m_commands);
   }
-  while (!event_commands.empty())
+  while (!commands.empty())
   {
-    EventCommand event_command {std::move(event_commands.front())};
-    event_commands.pop();
+    Command::Type command {std::move(commands.front())};
+    commands.pop();
     std::visit(
       [&](auto& command)
       {
         processCommand(command);
       },
-      event_command
+      command
     );
   }
 }
@@ -245,7 +244,7 @@ void ConnectionManager::initListeners(std::uint16_t port)
 
   {
     std::lock_guard lock(m_mutex);
-    m_event_commands.push(AddAllListenerSocketsEventCommand{listen_fds});
+    m_commands.push(Command::AddAllListenerSockets{listen_fds});
   }
   std::uint64_t value{1};
   m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
@@ -266,160 +265,163 @@ void ConnectionManager::runEventLoop()
   m_is_event_running.store(true);
   while (m_is_event_running.load())
   {
-    m_io_multiplexer.monitorEvents([this](int fd, epoll_event& ev){
-      if (fd == m_command_fd)
-      {
-        uint64_t value {};
-        m_io_multiplexer.readFD(m_command_fd, &value, sizeof(value));
-        processCommands();
-        return;
-      }
-      {
-        auto it {m_listen_fds.find(fd)};
-        if (it != m_listen_fds.end())
+    m_io_multiplexer.monitorEvents(
+        [this](int fd, epoll_event& ev)
         {
-          const int& fd = *it;
-          Endpoint client_info {};
-          int client {
-            accept(
-              fd,
-              (struct sockaddr*)&client_info.socket_address_information,
-              &client_info.socket_address_information_length)
-          };
-          if (client == -1)
-            return;
-          // Do not accept connection if the m_is_listen_running flag is set to false
-          if (!m_is_listen_running.load())
+          if (fd == m_command_fd)
           {
-            const char* msg = "SERVER_NOT_ACCEPTING\n";
-            ::send(client, msg, std::strlen(msg), 0);
-            std::cout << msg;
-            shutdown(client, SHUT_RDWR);
-            close(client);
+            uint64_t value {};
+            m_io_multiplexer.readFD(m_command_fd, &value, sizeof(value));
+            processCommands();
             return;
           }
           {
-            std::lock_guard lock(m_mutex);
-            m_event_commands.push(
-              AddConnectionEventCommand{
-                client,
-                client_info
-              }
-            );
-          }
-          uint64_t value{1};
-          m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
-          std::cout << "Client connected successfully." << std::endl;
-        }
-      }
-      auto it = m_connections.find(fd);
-      if (it == m_connections.end())
-        return;
-      Connection& conn {*it->second};
-      if (ev.events & EPOLLIN)
-      {
-        constexpr std::uint32_t buffer_size {1024 * 64};
-        char receivedBuffer[buffer_size];
-        long recv_status {recv(fd, receivedBuffer, sizeof(receivedBuffer)-1, 0)};
-        if (recv_status > 0)
-        {
-          conn.recv_buffer.insert(
-            conn.recv_buffer.end(),
-            receivedBuffer,
-            receivedBuffer + recv_status
-          );
-          parseIncomingMessage(conn);
-        }
-        else if (recv_status == 0)
-        {
-          std::cout << "disconnected cleanly." << std::endl;
-          m_io_multiplexer.removeFD(conn.socket_descriptor);
-          m_connections.erase(it);
-          return;
-        }
-        else
-        {
-          if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
-          {
-            removeConnection(fd);
-            return;
-          }
-        }
-      }
-      if (ev.events & EPOLLOUT)
-      {
-        while (conn.send_offset < conn.send_buffer.size())
-        {
-          size_t remaining {conn.send_buffer.size() - conn.send_offset};
-          ssize_t send_status {
-            ::send(
-              fd,
-              conn.send_buffer.data() + conn.send_offset,
-              remaining,
-              0
-            )
-          };
-          if (send_status > 0)
-          {
-            conn.send_offset += send_status;
-            continue;
-          }
-          if (send_status == 0)
-          {
-            break;
-          }
-          if (send_status == -1)
-          {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-              break;
-
-            if (errno == EINTR)
-              continue;
-
-            std::cout << "send error." << std::endl;
-            removeConnection(fd);
-            break;
-          }
-        }
-        if (conn.send_offset == conn.send_buffer.size())
-        {
-          conn.send_buffer.clear();
-          conn.send_offset = 0;
-
-          if (!conn.outgoing_files.empty())
-          {
-            bool outgoing_files_not_finished {false};
-            for (auto& outgoing_file: conn.outgoing_files)
+            auto it {m_listen_fds.find(fd)};
+            if (it != m_listen_fds.end())
             {
-                if (m_message_handler.queueNextFileChunk(conn, outgoing_file.first))
-                  outgoing_files_not_finished = true;
+              const int& fd = *it;
+              Endpoint client_info {};
+              int client {
+                accept(
+                  fd,
+                  (struct sockaddr*)&client_info.socket_address_information,
+                  &client_info.socket_address_information_length)
+              };
+              if (client == -1)
+                return;
+              // Do not accept connection if the m_is_listen_running flag is set to false
+              if (!m_is_listen_running.load())
+              {
+                const char* msg = "SERVER_NOT_ACCEPTING\n";
+                ::send(client, msg, std::strlen(msg), 0);
+                std::cout << msg;
+                shutdown(client, SHUT_RDWR);
+                close(client);
+                return;
+              }
+              {
+                std::lock_guard lock(m_mutex);
+                m_commands.push(
+                  Command::AddConnection{
+                    client,
+                    client_info
+                  }
+                );
+              }
+              uint64_t value{1};
+              m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
+              std::cout << "Client connected successfully." << std::endl;
             }
-            if (outgoing_files_not_finished)
-              return;
-            // auto it {conn.outgoing_files.begin()};
-            // if (m_message_handler.queueNextFileChunk(conn, it->first))
-            //   return;
           }
+          auto it = m_connections.find(fd);
+          if (it == m_connections.end())
+            return;
+          Connection& conn {*it->second};
+          if (ev.events & EPOLLIN)
+          {
+            constexpr std::uint32_t buffer_size {1024 * 64};
+            char receivedBuffer[buffer_size];
+            long recv_status {recv(fd, receivedBuffer, sizeof(receivedBuffer)-1, 0)};
+            if (recv_status > 0)
+            {
+              conn.recv_buffer.insert(
+                conn.recv_buffer.end(),
+                receivedBuffer,
+                receivedBuffer + recv_status
+              );
+              parseIncomingMessage(conn);
+            }
+            else if (recv_status == 0)
+            {
+              std::cout << "disconnected cleanly." << std::endl;
+              m_io_multiplexer.removeFD(conn.socket_descriptor);
+              m_connections.erase(it);
+              return;
+            }
+            else
+            {
+              if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+              {
+                removeConnection(fd);
+                return;
+              }
+            }
+          }
+          if (ev.events & EPOLLOUT)
+          {
+            while (conn.send_offset < conn.send_buffer.size())
+            {
+              size_t remaining {conn.send_buffer.size() - conn.send_offset};
+              ssize_t send_status {
+                ::send(
+                  fd,
+                  conn.send_buffer.data() + conn.send_offset,
+                  remaining,
+                  0
+                )
+              };
+              if (send_status > 0)
+              {
+                conn.send_offset += send_status;
+                continue;
+              }
+              if (send_status == 0)
+              {
+                break;
+              }
+              if (send_status == -1)
+              {
+                if (errno == EAGAIN || errno == EWOULDBLOCK)
+                  break;
 
-          epoll_event ep_event {};
-          ep_event.events = EPOLLIN;
-          ep_event.data.fd = conn.socket_descriptor;
-          m_io_multiplexer.modifyFDSettings(conn.socket_descriptor, ep_event);
-        }
+                if (errno == EINTR)
+                  continue;
+
+                std::cout << "send error." << std::endl;
+                removeConnection(fd);
+                break;
+              }
+            }
+            if (conn.send_offset == conn.send_buffer.size())
+            {
+              conn.send_buffer.clear();
+              conn.send_offset = 0;
+
+              if (!conn.outgoing_files.empty())
+              {
+                bool outgoing_files_not_finished {false};
+                for (auto& outgoing_file: conn.outgoing_files)
+                {
+                    if (m_message_handler.queueNextFileChunk(conn, outgoing_file.first))
+                      outgoing_files_not_finished = true;
+                }
+                if (outgoing_files_not_finished)
+                  return;
+                // auto it {conn.outgoing_files.begin()};
+                // if (m_message_handler.queueNextFileChunk(conn, it->first))
+                //   return;
+              }
+
+              epoll_event ep_event {};
+              ep_event.events = EPOLLIN;
+              ep_event.data.fd = conn.socket_descriptor;
+              m_io_multiplexer.modifyFDSettings(conn.socket_descriptor, ep_event);
+            }
+          }
+          if (ev.events & EPOLLHUP)
+          {
+            std::cout << "socket hangup." << std::endl;
+            removeConnection(fd);
+            return;
+          }
+          if (ev.events & EPOLLERR)
+          {
+            std::cout << "socket error." << std::endl;
+            removeConnection(fd);
+            return;
+          }
       }
-      if (ev.events & EPOLLHUP)
-      {
-        std::cout << "socket hangup." << std::endl;
-        removeConnection(fd);
-        return;
-      }
-      if (ev.events & EPOLLERR)
-      {
-        std::cout << "socket error." << std::endl;
-        removeConnection(fd);
-        return;
-      }
-    });
+    );
   }
 }
 
@@ -437,8 +439,8 @@ void ConnectionManager::addConnection(
 {
   {
     std::lock_guard lock(m_mutex);
-    m_event_commands.push(
-      AddConnectionEventCommand{
+    m_commands.push(
+      Command::AddConnection{
         socket_descriptor,
         endpoint
       }
@@ -453,8 +455,8 @@ void ConnectionManager::removeConnection(int socket_descriptor)
 {
   {
     std::lock_guard lock(m_mutex);
-    m_event_commands.push(
-      RemoveConnectionEventCommand{
+    m_commands.push(
+      Command::RemoveConnection{
         socket_descriptor
       }
     );
@@ -522,8 +524,8 @@ int ConnectionManager::connect(const std::string &hostname, int port)
 
   {
     std::lock_guard lock(m_mutex);
-    m_event_commands.push(
-      AddConnectionEventCommand{
+    m_commands.push(
+      Command::AddConnection{
         server_socket_descriptor,
         endpoint
       }
@@ -555,8 +557,8 @@ int ConnectionManager::send(
 
   {
     std::lock_guard lock(m_mutex);
-    m_event_commands.push(
-      SendMessageEventCommand{
+    m_commands.push(
+      Command::SendMessage{
         socket_descriptor,
         message_type,
         std::move(payload),
