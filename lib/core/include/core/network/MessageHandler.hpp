@@ -1,13 +1,14 @@
 #ifndef CORE_NETWORK_MESSAGE_HANDLER_HPP
 #define CORE_NETWORK_MESSAGE_HANDLER_HPP
 
-#include "core/types/Connection.hpp"
-#include "core/types/MessageType.hpp"
-#include <cstdint>
-#include <functional>
-#include <string_view>
-#include <tuple>
 #include <type_traits>
+#include <string_view>
+#include <functional>
+#include <cstdint>
+#include <tuple>
+
+#include "core/types/MessageType.hpp"
+#include "core/types/Connection.hpp"
 
 namespace message_handler_detail
 {
@@ -64,7 +65,6 @@ namespace message_handler_detail
 class MessageHandler
 {
 private:
-
   using Handlers = std::tuple<
     message_handler_detail::HandlerSlot<MessageType::MESSAGE_RESPONSE>,
     message_handler_detail::HandlerSlot<MessageType::FILE_DOWNLOAD_RESPONSE>,
@@ -73,9 +73,7 @@ private:
     message_handler_detail::HandlerSlot<MessageType::FILE_CHUNK>,
     message_handler_detail::HandlerSlot<MessageType::FILE_ERROR>
   >;
-
   Handlers handlers;
-
 public:
   void appendBytes(std::vector<char>& buffer, const void* data, std::size_t size_t);
   void dispatchMessage(Connection& connection, const char* data);

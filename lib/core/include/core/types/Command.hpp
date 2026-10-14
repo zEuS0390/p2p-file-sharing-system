@@ -1,13 +1,13 @@
 #ifndef CORE_TYPES_COMMAND_HPP
 #define CORE_TYPES_COMMAND_HPP
 
-#include <future>
 #include <unordered_set>
 #include <variant>
+#include <future>
 #include <vector>
 
-#include "core/types/Endpoint.hpp"
 #include "core/types/MessageType.hpp"
+#include "core/types/Endpoint.hpp"
 
 namespace Command
 {

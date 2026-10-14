@@ -1,15 +1,16 @@
+#include <unordered_map>
+#include <string_view>
+#include <csignal>
+#include <cstring>
+#include <cstdint>
+#include <chrono>
+#include <string>
+#include <thread>
+
 #include "core/network/ConnectionManager.hpp"
 #include "core/network/MessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
 #include "core/types/MessageType.hpp"
-#include <chrono>
-#include <csignal>
-#include <cstring>
-#include <string>
-#include <string_view>
-#include <thread>
-#include <cstdint>
-#include <unordered_map>
 
 volatile sig_atomic_t shutdown_requested = 0;
 

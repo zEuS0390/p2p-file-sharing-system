@@ -3,8 +3,8 @@
 #include <cstring>
 #include <thread>
 
-#include "core/network/MessageHandler.hpp"
 #include "core/network/ConnectionManager.hpp"
+#include "core/network/MessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
 #include "core/types/MessageType.hpp"
 

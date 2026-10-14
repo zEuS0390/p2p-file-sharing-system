@@ -1,12 +1,12 @@
+#include <string_view>
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <atomic>
-#include <string_view>
 #include <thread>
 
-#include "core/network/MessageHandler.hpp"
 #include "core/network/ConnectionManager.hpp"
+#include "core/network/MessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
 
 std::atomic<bool> is_running {true};

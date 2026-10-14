@@ -1,17 +1,17 @@
-#include <cstdint>
+#include <string_view>
 #include <iostream>
+#include <fstream>
+#include <cstdint>
+#include <cstring>
 #include <cstdlib>
 #include <string>
-#include <cstring>
-#include <fstream>
-#include <string_view>
 #include <thread>
 #include <chrono>
 #include <atomic>
 #include <ios>
 
-#include "core/network/MessageHandler.hpp"
 #include "core/network/ConnectionManager.hpp"
+#include "core/network/MessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
 #include "core/types/MessageType.hpp"
 

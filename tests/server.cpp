@@ -1,10 +1,10 @@
 #include <iostream>
-#include <string>
 #include <unistd.h>
 #include <csignal>
+#include <string>
 
-#include "core/network/MessageHandler.hpp"
 #include "core/network/ConnectionManager.hpp"
+#include "core/network/MessageHandler.hpp"
 
 static ConnectionManager* server {nullptr};
 

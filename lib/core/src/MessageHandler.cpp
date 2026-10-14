@@ -1,19 +1,19 @@
-#include <string_view>
 #include <sys/socket.h>
+#include <string_view>
 #include <filesystem>
+#include <iostream>
 #include <cstring>
 #include <fstream>
 #include <string>
-#include <iostream>
 #include <ios>
 
-#include "core/network/MessageHandler.hpp"
+#include "core/types/OutgoingFileTransfer.hpp"
 #include "core/types/IncomingFileTransfer.hpp"
+#include "core/network/MessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
 #include "core/types/FileErrorCode.hpp"
 #include "core/types/MessageType.hpp"
 #include "core/types/Connection.hpp"
-#include "core/types/OutgoingFileTransfer.hpp"
 
 void MessageHandler::appendBytes(std::vector<char>& buffer, const void* data, std::size_t size_t)
 {

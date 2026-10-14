@@ -1,10 +1,10 @@
 #ifndef CORE_NETWORK_IOMULTIPLEXER_HPP
 #define CORE_NETWORK_IOMULTIPLEXER_HPP
 
-#include <cstring>
+#include <sys/epoll.h>
 #include <iostream>
 #include <unistd.h>
-#include <sys/epoll.h>
+#include <cstring>
 #include <atomic>
 #include <array>
 

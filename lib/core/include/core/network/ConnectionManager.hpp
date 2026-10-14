@@ -2,19 +2,19 @@
 #define CORE_NETWORK_CONNECTION_MANAGER_HPP
 
 #include <unordered_map>
+#include <unordered_set>
 #include <sys/epoll.h>
 #include <cstdint>
 #include <memory>
 #include <atomic>
+#include <string>
 #include <mutex>
 #include <queue>
-#include <string>
-#include <unordered_set>
 
-#include "core/network/IOMultiplexer.hpp"
 #include "core/network/MessageHandler.hpp"
-#include "core/types/Connection.hpp"
+#include "core/network/IOMultiplexer.hpp"
 #include "core/types/MessageType.hpp"
+#include "core/types/Connection.hpp"
 #include "core/types/Command.hpp"
 
 /*

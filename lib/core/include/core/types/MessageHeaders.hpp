@@ -3,8 +3,8 @@
 
 #include <cstdint>
 
-#include "core/types/MessageType.hpp"
 #include "core/types/FileErrorCode.hpp"
+#include "core/types/MessageType.hpp"
 
 struct MessageHeader
 {

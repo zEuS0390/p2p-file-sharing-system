@@ -1,16 +1,16 @@
 #ifndef CORE_TYPES_CONNECTION_HPP
 #define CORE_TYPES_CONNECTION_HPP
 
-#include <cstdint>
 #include <unordered_map>
+#include <cstdint>
 #include <vector>
 #include <poll.h>
 #include <atomic>
 
-#include "core/types/Endpoint.hpp"
 #include "core/types/IncomingFileTransfer.hpp"
-#include "core/types/MessageHeaders.hpp"
 #include "core/types/OutgoingFileTransfer.hpp"
+#include "core/types/MessageHeaders.hpp"
+#include "core/types/Endpoint.hpp"
 
 /*
  * A structure for both server and client containing connection information.

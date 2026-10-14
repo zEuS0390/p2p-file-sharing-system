@@ -1,8 +1,8 @@
-#include <cstring>
-#include <iostream>
-#include <stdexcept>
 #include <sys/epoll.h>
+#include <stdexcept>
 #include <unistd.h>
+#include <iostream>
+#include <cstring>
 
 #include "core/network/IOMultiplexer.hpp"
 

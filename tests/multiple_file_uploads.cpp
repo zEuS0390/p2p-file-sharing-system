@@ -1,10 +1,10 @@
+#include <unordered_map>
+#include <iostream>
 #include <csignal>
 #include <cstring>
 #include <fstream>
 #include <iomanip>
-#include <iostream>
 #include <thread>
-#include <unordered_map>
 
 #include "core/network/ConnectionManager.hpp"
 #include "core/network/MessageHandler.hpp"
