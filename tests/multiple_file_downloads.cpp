@@ -8,7 +8,6 @@
 #include <thread>
 
 #include "core/network/ConnectionManager.hpp"
-#include "core/network/MessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
 #include "core/types/MessageType.hpp"
 
@@ -39,12 +38,11 @@ int main(int argc, const char** argv)
   std::signal(SIGTERM, handle_signal);
   std::signal(SIGINT, handle_signal);
 
-  MessageHandler message_handler;
-  ConnectionManager client {message_handler};
+  ConnectionManager client;
 
   std::unordered_map<std::uint64_t, FileDownloadProgress> file_download_progress;
 
-  message_handler.on<MessageType::FILE_DOWNLOAD_RESPONSE>(
+  client.m_message_handler.on<MessageType::FILE_DOWNLOAD_RESPONSE>(
     [&file_download_progress](std::uint64_t transfer_id, std::uint64_t file_size)
     {
       std::cout << "Downloading request " << transfer_id << " ...\n" << std::flush;
@@ -52,7 +50,7 @@ int main(int argc, const char** argv)
     }
   );
 
-  message_handler.on<MessageType::FILE_CHUNK>(
+  client.m_message_handler.on<MessageType::FILE_CHUNK>(
     [&file_download_progress](std::uint64_t transfer_id, std::uint64_t chunk_size)
     {
       auto it {file_download_progress.find(transfer_id)};
@@ -64,7 +62,7 @@ int main(int argc, const char** argv)
     }
   );
 
-  message_handler.on<MessageType::FILE_ERROR>(
+  client.m_message_handler.on<MessageType::FILE_ERROR>(
     [](std::uint64_t transfer_id, std::string_view msg)
     {
       std::cout << msg << std::endl;

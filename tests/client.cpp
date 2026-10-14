@@ -11,7 +11,6 @@
 #include <ios>
 
 #include "core/network/ConnectionManager.hpp"
-#include "core/network/MessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
 #include "core/types/MessageType.hpp"
 
@@ -30,16 +29,14 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  MessageHandler message_handler;
+  ConnectionManager client;
 
-  message_handler.on<MessageType::MESSAGE_RESPONSE>(
+  client.m_message_handler.on<MessageType::MESSAGE_RESPONSE>(
     [](std::uint64_t request_id, std::string_view str_view)
     {
       std::cout << str_view << std::flush;
     }
   );
-
-  ConnectionManager client {message_handler};
 
   socket_descriptor.store(client.connect(argv[1], atoi(argv[2])));
 

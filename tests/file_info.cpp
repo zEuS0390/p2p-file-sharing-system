@@ -4,7 +4,6 @@
 #include <thread>
 
 #include "core/network/ConnectionManager.hpp"
-#include "core/network/MessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
 #include "core/types/MessageType.hpp"
 
@@ -17,17 +16,16 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  MessageHandler message_handler;
-  ConnectionManager client {message_handler};
+  ConnectionManager client;
 
-  message_handler.on<MessageType::MESSAGE_RESPONSE>(
+  client.m_message_handler.on<MessageType::MESSAGE_RESPONSE>(
     [](std::uint64_t, std::string_view msg)
     {
       std::cout << msg << std::flush;
     }
   );
 
-  message_handler.on<MessageType::FILE_ERROR>(
+  client.m_message_handler.on<MessageType::FILE_ERROR>(
     [](std::uint64_t, std::string_view msg)
     {
       std::cout << msg << std::flush;

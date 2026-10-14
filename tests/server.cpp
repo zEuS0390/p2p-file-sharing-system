@@ -4,7 +4,6 @@
 #include <string>
 
 #include "core/network/ConnectionManager.hpp"
-#include "core/network/MessageHandler.hpp"
 
 static ConnectionManager* server {nullptr};
 
@@ -27,8 +26,7 @@ int main(int argc, char* argv[])
   std::signal(SIGTERM, handle_signal);
   std::signal(SIGINT, handle_signal);
 
-  MessageHandler message_handler;
-  server = new ConnectionManager{message_handler};
+  server = new ConnectionManager;
   server->initListeners(std::stoi(argv[1]));
   server->startListening();
   server->runEventLoop();

@@ -7,7 +7,6 @@
 #include <thread>
 
 #include "core/network/ConnectionManager.hpp"
-#include "core/network/MessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
 #include "core/types/MessageType.hpp"
 
@@ -39,13 +38,11 @@ int main(int argc, const char** argv)
   std::signal(SIGTERM, handle_signal);
   std::signal(SIGINT, handle_signal);
 
-  MessageHandler message_handler;
-
-  ConnectionManager client {message_handler};
-
   std::unordered_map<std::uint64_t, FileUploadProgress> file_uploads;
 
-  message_handler.on<MessageType::FILE_UPLOAD_RESPONSE>(
+  ConnectionManager client;
+
+  client.m_message_handler.on<MessageType::FILE_UPLOAD_RESPONSE>(
     [&file_uploads](std::uint64_t transfer_id)
     {
       std::cout << "File upload requested." << std::endl;
@@ -53,7 +50,7 @@ int main(int argc, const char** argv)
     }
   );
 
-  message_handler.on<MessageType::FILE_UPLOAD_PROGRESS>(
+  client.m_message_handler.on<MessageType::FILE_UPLOAD_PROGRESS>(
     [&file_uploads](std::uint64_t transfer_id, std::uint64_t bytes_sent, std::uint64_t file_size)
     {
       auto it {file_uploads.find(transfer_id)};
@@ -65,8 +62,6 @@ int main(int argc, const char** argv)
         file_uploads.erase(transfer_id);
     }
   );
-
-  std::unordered_map<std::uint64_t, FileUploadProgress> file_transfers;
 
   std::jthread eventThread {&ConnectionManager::runEventLoop, &client};
   int fd {client.connect(argv[1], std::stoi(argv[2]))};

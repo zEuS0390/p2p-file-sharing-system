@@ -24,8 +24,7 @@
 #include "core/types/Command.hpp"
 
 // Constructor
-ConnectionManager::ConnectionManager(MessageHandler& message_handler):
-  m_message_handler{message_handler},
+ConnectionManager::ConnectionManager():
   m_is_listen_running{false},
   m_command_fd{-1},
   m_is_event_running{false}

@@ -6,7 +6,6 @@
 #include <thread>
 
 #include "core/network/ConnectionManager.hpp"
-#include "core/network/MessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
 
 // Main Entry Point of the Program
@@ -21,12 +20,11 @@ int main(int argc, const char* argv[])
     return 1;
   }
 
-  MessageHandler message_handler;
-  ConnectionManager client {message_handler};
-
   std::unordered_map<std::uint64_t, std::vector<std::uint64_t> > file_transfer;
 
-  message_handler.on<MessageType::FILE_DOWNLOAD_RESPONSE>(
+  ConnectionManager client;
+
+  client.m_message_handler.on<MessageType::FILE_DOWNLOAD_RESPONSE>(
     [&file_transfer](
       std::uint64_t transfer_id,
       std::uint64_t file_size
@@ -36,7 +34,7 @@ int main(int argc, const char* argv[])
     }
   );
 
-  message_handler.on<MessageType::FILE_CHUNK>(
+  client.m_message_handler.on<MessageType::FILE_CHUNK>(
     [&file_transfer](
       std::uint64_t transfer_id,
       std::uint64_t chunk_size

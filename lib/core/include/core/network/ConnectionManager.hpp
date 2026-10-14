@@ -17,13 +17,9 @@
 #include "core/types/Connection.hpp"
 #include "core/types/Command.hpp"
 
-/*
- * Base class for both client and server to manage connections.
- */
 class ConnectionManager
 {
 protected:
-  MessageHandler& m_message_handler;
   IOMultiplexer m_io_multiplexer;
   std::mutex m_mutex;
   std::atomic<bool> m_is_listen_running;
@@ -39,8 +35,9 @@ private:
   void processCommands();
   void parseIncomingMessage(Connection& connection);
 public:
+  MessageHandler m_message_handler;
   std::atomic<bool> m_is_event_running;
-  explicit ConnectionManager(MessageHandler& message_handler);
+  ConnectionManager();
   ~ConnectionManager();
   void initListeners(std::uint16_t port);
   void startListening();

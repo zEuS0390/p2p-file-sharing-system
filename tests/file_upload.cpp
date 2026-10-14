@@ -6,7 +6,6 @@
 #include <ios>
 
 #include "core/network/ConnectionManager.hpp"
-#include "core/network/MessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
 
 // Main Entry Point of the Program
@@ -21,8 +20,7 @@ int main(int argc, const char* argv[])
     return 1;
   }
 
-  MessageHandler message_handler;
-  ConnectionManager client {message_handler};
+  ConnectionManager client;
 
   int socket_descriptor {client.connect(argv[1], std::stoi(argv[2]))};
 

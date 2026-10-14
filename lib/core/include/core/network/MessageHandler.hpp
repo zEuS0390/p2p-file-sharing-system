@@ -74,8 +74,8 @@ private:
     message_handler_detail::HandlerSlot<MessageType::FILE_ERROR>
   >;
   Handlers handlers;
-public:
   void appendBytes(std::vector<char>& buffer, const void* data, std::size_t size_t);
+public:
   void dispatchMessage(Connection& connection, const char* data);
   void queueMessage(Connection& connection, const MessageType& message_type, const char* data, size_t data_size);
   bool queueNextFileChunk(Connection& connection, std::uint64_t transfer_id);

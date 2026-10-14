@@ -6,7 +6,6 @@
 #include <thread>
 
 #include "core/network/ConnectionManager.hpp"
-#include "core/network/MessageHandler.hpp"
 #include "core/types/MessageHeaders.hpp"
 
 std::atomic<bool> is_running {true};
@@ -21,10 +20,9 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  MessageHandler message_handler;
-  ConnectionManager peer {message_handler};
+  ConnectionManager peer;
 
-  message_handler.on<MessageType::MESSAGE_RESPONSE>(
+  peer.m_message_handler.on<MessageType::MESSAGE_RESPONSE>(
     [](std::uint64_t, std::string_view msg)
     {
       std::cout << msg << std::flush;
