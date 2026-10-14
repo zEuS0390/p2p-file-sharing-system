@@ -47,11 +47,6 @@ public:
   void stopListening();
   void runEventLoop();
   void stopEventLoop();
-  void addConnection(
-    int socket_descriptor,
-    const Endpoint& endpoint
-  );
-  void removeConnection(int socket_descriptor);
   int connect(const std::string& hostname, int port);
   int disconnect(int socket_descriptor);
   int send(

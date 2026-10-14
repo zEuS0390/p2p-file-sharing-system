@@ -342,7 +342,9 @@ void ConnectionManager::runEventLoop()
             {
               if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
               {
-                removeConnection(fd);
+                m_commands.push(Command::RemoveConnection{fd});
+                uint64_t value {1};
+                m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
                 return;
               }
             }
@@ -378,7 +380,9 @@ void ConnectionManager::runEventLoop()
                   continue;
 
                 std::cout << "send error." << std::endl;
-                removeConnection(fd);
+                m_commands.push(Command::RemoveConnection{fd});
+                uint64_t value {1};
+                m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
                 break;
               }
             }
@@ -411,13 +415,17 @@ void ConnectionManager::runEventLoop()
           if (ev.events & EPOLLHUP)
           {
             std::cout << "socket hangup." << std::endl;
-            removeConnection(fd);
+            m_commands.push(Command::RemoveConnection{fd});
+            uint64_t value {1};
+            m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
             return;
           }
           if (ev.events & EPOLLERR)
           {
             std::cout << "socket error." << std::endl;
-            removeConnection(fd);
+            m_commands.push(Command::RemoveConnection{fd});
+            uint64_t value {1};
+            m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
             return;
           }
       }
@@ -429,39 +437,6 @@ void ConnectionManager::stopEventLoop()
 {
   m_is_event_running.store(false);
   uint64_t value{1};
-  m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
-}
-
-void ConnectionManager::addConnection(
-  int socket_descriptor,
-  const Endpoint& endpoint
-)
-{
-  {
-    std::lock_guard lock(m_mutex);
-    m_commands.push(
-      Command::AddConnection{
-        socket_descriptor,
-        endpoint
-      }
-    );
-  }
-  uint64_t value {1};
-  m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
-  return;
-}
-
-void ConnectionManager::removeConnection(int socket_descriptor)
-{
-  {
-    std::lock_guard lock(m_mutex);
-    m_commands.push(
-      Command::RemoveConnection{
-        socket_descriptor
-      }
-    );
-  }
-  uint64_t value {1};
   m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
 }
 
@@ -538,7 +513,16 @@ int ConnectionManager::connect(const std::string &hostname, int port)
 
 int ConnectionManager::disconnect(int socket_descriptor)
 {
-  removeConnection(socket_descriptor);
+  {
+    std::lock_guard lock(m_mutex);
+    m_commands.push(
+      Command::RemoveConnection{
+        socket_descriptor
+      }
+    );
+  }
+  uint64_t value {1};
+  m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
   return 0;
 }
 
