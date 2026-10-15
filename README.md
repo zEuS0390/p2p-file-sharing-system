@@ -16,6 +16,11 @@ The most efficient method that I found was I/O multiplexing. It is essentially a
 ### Planned Features
 - Peer Discovery with DHT
 
+## Diagrams
+
+### Sequence Diagram of the Upload and Download Process
+<img width="665" height="593" alt="upload_and_download_file_sequence_daigram" src="https://github.com/user-attachments/assets/49bb8ec3-05e2-4ef3-a309-fd543637ea4e" />
+
 ## Building
 
 The building process is very straightforward on Linux. It does not require any third-party libraries, as it was built entirely from scratch. 
