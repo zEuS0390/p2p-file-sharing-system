@@ -4,6 +4,7 @@ set(NETWORK_SRC_FILES
     "src/ConnectionManager.cpp"
     "src/MessageHandler.cpp"
     "src/IOMultiplexer.cpp"
+    "src/ThreadPool.cpp"
 )
 
 add_library(core SHARED ${NETWORK_SRC_FILES})
