@@ -1,3 +1,4 @@
+#include <mutex>
 #include <unordered_map>
 #include <string_view>
 #include <csignal>
@@ -41,18 +42,21 @@ int main(int argc, const char** argv)
   ConnectionManager client;
 
   std::unordered_map<std::uint64_t, FileDownloadProgress> file_download_progress;
+  std::mutex progress_mutex;
 
   client.m_message_handler.on<MessageType::FILE_DOWNLOAD_RESPONSE>(
-    [&file_download_progress](std::uint64_t transfer_id, std::uint64_t file_size)
+    [&file_download_progress, &progress_mutex](std::uint64_t transfer_id, std::uint64_t file_size)
     {
+      std::lock_guard lock(progress_mutex);
       std::cout << "Downloading request " << transfer_id << " ...\n" << std::flush;
       file_download_progress.emplace(transfer_id, FileDownloadProgress{file_size,0});
     }
   );
 
   client.m_message_handler.on<MessageType::FILE_CHUNK>(
-    [&file_download_progress](std::uint64_t transfer_id, std::uint64_t chunk_size)
+    [&file_download_progress, &progress_mutex](std::uint64_t transfer_id, std::uint64_t chunk_size)
     {
+      std::lock_guard lock(progress_mutex);
       auto it {file_download_progress.find(transfer_id)};
       if (it == file_download_progress.end())
         return;
@@ -63,7 +67,7 @@ int main(int argc, const char** argv)
   );
 
   client.m_message_handler.on<MessageType::FILE_ERROR>(
-    [](std::uint64_t transfer_id, std::string_view msg)
+    [](std::uint64_t, std::string_view msg)
     {
       std::cout << msg << std::endl;
     }
@@ -84,7 +88,7 @@ int main(int argc, const char** argv)
   {
     {
       std::jthread sendThread {
-        [&fd, &client, &i, &argv]()
+        [&fd, &client, i, &argv]()
         {
           std::string file_name_str {argv[i]};
           FileDownloadRequestHeader file_download_request {};
@@ -103,12 +107,15 @@ int main(int argc, const char** argv)
   while (!shutdown_requested)
   {
     std::cout << "\r\033[2K";
-    for (const auto& [key, value]: file_download_progress)
     {
-      std::cout << key
-                << ": "
-                << ((static_cast<double>(value.bytes_received) / static_cast<double>(value.file_size)) * 100)
-                << "%; ";
+      std::lock_guard lock(progress_mutex);
+      for (const auto& [key, value]: file_download_progress)
+      {
+        std::cout << key
+                  << ": "
+                  << ((static_cast<double>(value.bytes_received) / static_cast<double>(value.file_size)) * 100)
+                  << "%; ";
+      }
     }
     std::cout << std::fixed << std::setprecision(2) << std::flush;
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
