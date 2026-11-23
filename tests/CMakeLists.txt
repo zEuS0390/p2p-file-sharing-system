@@ -1,36 +1,42 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.17)
 
-add_executable(server "${CMAKE_CURRENT_SOURCE_DIR}/server.cpp")
-add_executable(client "${CMAKE_CURRENT_SOURCE_DIR}/client.cpp")
-add_executable(peer "${CMAKE_CURRENT_SOURCE_DIR}/peer.cpp")
-add_executable(filedownload "${CMAKE_CURRENT_SOURCE_DIR}/file_download.cpp")
-add_executable(fileupload "${CMAKE_CURRENT_SOURCE_DIR}/file_upload.cpp")
-add_executable(fileinfo "${CMAKE_CURRENT_SOURCE_DIR}/file_info.cpp")
-add_executable(multiplefiledownloads "${CMAKE_CURRENT_SOURCE_DIR}/multiple_file_downloads.cpp")
-add_executable(multiplefileuploads "${CMAKE_CURRENT_SOURCE_DIR}/multiple_file_uploads.cpp")
+set(
+  CPP_SOURCES
+  "server.cpp"
+  "client.cpp"
+  "peer.cpp"
+  "file_download.cpp"
+  "file_upload.cpp"
+  "file_info.cpp"
+  "multiple_file_downloads.cpp"
+  "multiple_file_uploads.cpp"
+  "use_thread_pool.cpp"
+)
 
-set_target_properties(server PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-set_target_properties(client PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-set_target_properties(peer PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-set_target_properties(filedownload PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-set_target_properties(fileinfo PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-set_target_properties(fileupload PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-set_target_properties(multiplefiledownloads PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-set_target_properties(multiplefileuploads PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
+foreach(src IN LISTS CPP_SOURCES)
 
-target_link_libraries(server PRIVATE core)
-target_link_libraries(client PRIVATE core)
-target_link_libraries(peer PRIVATE core)
-target_link_libraries(filedownload PRIVATE core)
-target_link_libraries(fileupload PRIVATE core)
-target_link_libraries(fileinfo PRIVATE core)
-target_link_libraries(multiplefiledownloads PRIVATE core)
-target_link_libraries(multiplefileuploads PRIVATE core)
+  # Extract the filename without its directory path or file extension
+  get_filename_component(target_name "${src}" NAME_WE)
+
+  # Remove all underscores from the filename to generate a clean target name
+  string(REPLACE "_" "" target_name "${target_name}")
+
+  # Create an executable target using the generated target name and the corresponding source file
+  add_executable(
+    ${target_name}
+    "${CMAKE_CURRENT_SOURCE_DIR}/${src}"
+  )
+
+  # Set the output directory for all generated executables to the tests folder
+  set_target_properties(
+    ${target_name}
+    PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY
+    "${CMAKE_BINARY_DIR}/tests"
+  )
+
+  # Link the executable against the core library
+  target_link_libraries(${target_name} PRIVATE core)
+
+endforeach()
+
