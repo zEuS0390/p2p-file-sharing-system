@@ -4,7 +4,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <sys/epoll.h>
-#include <cstdint>
 #include <memory>
 #include <atomic>
 #include <string>
@@ -19,15 +18,9 @@
 
 class ConnectionManager
 {
-protected:
-  IOMultiplexer m_io_multiplexer;
-  std::mutex m_mutex;
-  std::atomic<bool> m_is_listen_running;
-  std::atomic<int> m_command_fd;
-  std::unordered_set<int> m_listen_fds;
-  std::queue<Command::Type> m_commands;
-  std::unordered_map<int, std::unique_ptr<Connection> > m_connections;
 private:
+  using Commands = std::queue<Command::Type>;
+  using Connections = std::unordered_map<int, std::unique_ptr<Connection> >;
   void processCommand(Command::AddAllListenerSockets& command);
   void processCommand(Command::AddConnection& command);
   void processCommand(Command::RemoveConnection& command);
@@ -50,8 +43,16 @@ public:
     int socket_descriptor,
     const MessageType& message_type,
     const char* data,
-    size_t length
+    std::size_t length
   );
+protected:
+  IOMultiplexer             m_io_multiplexer;
+  std::mutex                m_mutex;
+  std::atomic<bool>         m_is_listen_running;
+  std::atomic<int>          m_command_fd;
+  std::unordered_set<int>   m_listen_fds;
+  Commands                  m_commands;
+  Connections               m_connections;
 };
 
 #endif // CORE_NETWORK_CONNECTION_MANAGER_HPP
