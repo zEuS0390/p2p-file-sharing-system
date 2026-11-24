@@ -25,9 +25,9 @@
 
 // Constructor
 ConnectionManager::ConnectionManager():
+  m_is_event_running{false},
   m_is_listen_running{false},
-  m_command_fd{-1},
-  m_is_event_running{false}
+  m_command_fd{-1}
 {
   m_command_fd = eventfd(0,EFD_NONBLOCK | EFD_CLOEXEC);
   if (m_command_fd == -1)
@@ -41,6 +41,8 @@ ConnectionManager::~ConnectionManager()
   for (const int& listen_fd: m_listen_fds) 
     m_io_multiplexer.removeFD(listen_fd);
   close(m_command_fd.load());
+  if (m_is_listen_running)
+    stopListening();
 }
 
 void ConnectionManager::parseIncomingMessage(Connection& connection)
@@ -389,22 +391,15 @@ void ConnectionManager::runEventLoop()
             {
               conn.send_buffer.clear();
               conn.send_offset = 0;
-
               if (!conn.outgoing_files.empty())
               {
                 bool outgoing_files_not_finished {false};
                 for (auto& outgoing_file: conn.outgoing_files)
-                {
                     if (m_message_handler.queueNextFileChunk(conn, outgoing_file.first))
                       outgoing_files_not_finished = true;
-                }
                 if (outgoing_files_not_finished)
                   return;
-                // auto it {conn.outgoing_files.begin()};
-                // if (m_message_handler.queueNextFileChunk(conn, it->first))
-                //   return;
               }
-
               epoll_event ep_event {};
               ep_event.events = EPOLLIN;
               ep_event.data.fd = conn.socket_descriptor;
@@ -549,7 +544,7 @@ int ConnectionManager::send(
       }
     );
   }
-  uint64_t value {1};
+  std::uint64_t value {1};
   m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
   return future.get();
 }

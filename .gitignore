@@ -1,8 +1,10 @@
 *
-!lib/
-!lib/**
+# !lib/
+# !lib/**
 !src/
 !src/**
+!include/
+!include/**
 !tests/
 !tests/**
 !.gitignore
