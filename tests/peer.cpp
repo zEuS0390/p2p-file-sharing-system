@@ -5,8 +5,8 @@
 #include <atomic>
 #include <thread>
 
-#include "core/network/ConnectionManager.hpp"
-#include "core/types/MessageHeaders.hpp"
+#include "p2p_fss/network/ConnectionManager.hpp"
+#include "p2p_fss/types/MessageHeaders.hpp"
 
 std::atomic<bool> is_running {true};
 std::atomic<int> socket_descriptor {-1};

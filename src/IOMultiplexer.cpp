@@ -4,7 +4,7 @@
 #include <iostream>
 #include <cstring>
 
-#include "core/network/IOMultiplexer.hpp"
+#include "p2p_fss/network/IOMultiplexer.hpp"
 
 IOMultiplexer::IOMultiplexer():
   m_epfd{-1}

@@ -3,36 +3,35 @@
 #include <csignal>
 #include <string>
 
-#include "core/network/ConnectionManager.hpp"
-
-static ConnectionManager* server {nullptr};
-
-volatile std::sig_atomic_t shutdown_requested {0};
-
-void handle_signal(int signal_number)
-{
-  server->m_is_event_running = 0;
-}
+#include "p2p_fss/network/ConnectionManager.hpp"
 
 // Main entry point of the program
 int main(int argc, char* argv[])
 {
   if (argc != 2)
   {
-    std::cerr << "Usage: " << argv[0] << " <port>" << std::endl;
+    std::cerr << "Usage: "
+              << argv[0]
+              << " <port>" 
+    << std::endl;
     return 1;
   }
+
+  static ConnectionManager server = ConnectionManager();
+
+  auto handle_signal = []([[maybe_unused]] int signal_number)
+  {
+    server.m_is_event_running = 0;
+  };
 
   std::signal(SIGTERM, handle_signal);
   std::signal(SIGINT, handle_signal);
 
-  server = new ConnectionManager;
-  server->initListeners(std::stoi(argv[1]));
-  server->startListening();
-  server->runEventLoop();
-  server->stopListening();
-  server->stopEventLoop();
-  delete server;
-  return 0;
+  server.initListeners(std::stoi(argv[1]));
+  server.startListening();
+  server.runEventLoop();
+  server.stopListening();
+  server.stopEventLoop();
+
 }
 

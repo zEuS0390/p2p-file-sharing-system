@@ -1,5 +1,5 @@
-#ifndef CORE_NETWORK_IOMULTIPLEXER_HPP
-#define CORE_NETWORK_IOMULTIPLEXER_HPP
+#ifndef P2P_FSS_NETWORK_IOMULTIPLEXER_HPP
+#define P2P_FSS_NETWORK_IOMULTIPLEXER_HPP
 
 #include <sys/epoll.h>
 #include <iostream>
@@ -46,5 +46,5 @@ void IOMultiplexer::monitorEvents(Func&& func)
   }
 }
 
-#endif // CORE_NETWORK_IOMULTIPLEXER_HPP
+#endif // P2P_FSS_NETWORK_IOMULTIPLEXER_HPP
 

@@ -1,10 +1,10 @@
-#ifndef CORE_TYPES_MESSAGE_HEADER_HPP
-#define CORE_TYPES_MESSAGE_HEADER_HPP
+#ifndef P2P_FSS_TYPES_MESSAGE_HEADER_HPP
+#define P2P_FSS_TYPES_MESSAGE_HEADER_HPP
 
 #include <cstdint>
 
-#include "core/types/FileErrorCode.hpp"
-#include "core/types/MessageType.hpp"
+#include "p2p_fss/types/FileErrorCode.hpp"
+#include "p2p_fss/types/MessageType.hpp"
 
 struct MessageHeader
 {
@@ -73,5 +73,5 @@ struct FileErrorHeader
   std::uint64_t message_size {0};
 };
 
-#endif // CORE_TYPES_MESSAGE_HEADER_HPP
+#endif // P2P_FSS_TYPES_MESSAGE_HEADER_HPP
 

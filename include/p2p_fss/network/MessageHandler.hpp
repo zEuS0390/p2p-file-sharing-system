@@ -1,5 +1,5 @@
-#ifndef CORE_NETWORK_MESSAGE_HANDLER_HPP
-#define CORE_NETWORK_MESSAGE_HANDLER_HPP
+#ifndef P2P_FSS_NETWORK_MESSAGE_HANDLER_HPP
+#define P2P_FSS_NETWORK_MESSAGE_HANDLER_HPP
 
 #include <type_traits>
 #include <string_view>
@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <tuple>
 
-#include "core/types/MessageType.hpp"
-#include "core/types/Connection.hpp"
+#include "p2p_fss/types/MessageType.hpp"
+#include "p2p_fss/types/Connection.hpp"
 
 namespace message_handler_detail
 {
@@ -97,5 +97,5 @@ void MessageHandler::on(Func&& func)
   std::get<message_handler_detail::HandlerSlot<T> >(handlers).function = std::forward<Func>(func);
 }
 
-#endif // CORE_NETWORK_MESSAGE_HANDLER_HPP
+#endif // P2P_FSS_NETWORK_MESSAGE_HANDLER_HPP
 

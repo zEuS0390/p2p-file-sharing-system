@@ -1,5 +1,5 @@
-#ifndef CORE_TYPES_FILE_ERROR_CODE_HPP
-#define CORE_TYPES_FILE_ERROR_CODE_HPP
+#ifndef P2P_FSS_TYPES_FILE_ERROR_CODE_HPP
+#define P2P_FSS_TYPES_FILE_ERROR_CODE_HPP
 
 #include <cstdint>
 
@@ -12,5 +12,5 @@ enum class FileErrorCode: std::uint8_t
   FILE_GENERIC_ERROR
 };
 
-#endif // CORE_TYPES_FILE_ERROR_CODE_HPP
+#endif // P2P_FSS_TYPES_FILE_ERROR_CODE_HPP
 

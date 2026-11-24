@@ -7,13 +7,13 @@
 #include <string>
 #include <ios>
 
-#include "core/types/OutgoingFileTransfer.hpp"
-#include "core/types/IncomingFileTransfer.hpp"
-#include "core/network/MessageHandler.hpp"
-#include "core/types/MessageHeaders.hpp"
-#include "core/types/FileErrorCode.hpp"
-#include "core/types/MessageType.hpp"
-#include "core/types/Connection.hpp"
+#include "p2p_fss/types/OutgoingFileTransfer.hpp"
+#include "p2p_fss/types/IncomingFileTransfer.hpp"
+#include "p2p_fss/network/MessageHandler.hpp"
+#include "p2p_fss/types/MessageHeaders.hpp"
+#include "p2p_fss/types/FileErrorCode.hpp"
+#include "p2p_fss/types/MessageType.hpp"
+#include "p2p_fss/types/Connection.hpp"
 
 void MessageHandler::appendBytes(std::vector<char>& buffer, const void* data, std::size_t size_t)
 {

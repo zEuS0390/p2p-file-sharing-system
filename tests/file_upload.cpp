@@ -5,8 +5,8 @@
 #include <thread>
 #include <ios>
 
-#include "core/network/ConnectionManager.hpp"
-#include "core/types/MessageHeaders.hpp"
+#include "p2p_fss/network/ConnectionManager.hpp"
+#include "p2p_fss/types/MessageHeaders.hpp"
 
 // Main Entry Point of the Program
 int main(int argc, const char* argv[])

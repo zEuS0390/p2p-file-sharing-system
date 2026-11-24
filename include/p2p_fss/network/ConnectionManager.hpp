@@ -1,5 +1,5 @@
-#ifndef CORE_NETWORK_CONNECTION_MANAGER_HPP
-#define CORE_NETWORK_CONNECTION_MANAGER_HPP
+#ifndef P2P_FSS_NETWORK_CONNECTION_MANAGER_HPP
+#define P2P_FSS_NETWORK_CONNECTION_MANAGER_HPP
 
 #include <unordered_map>
 #include <unordered_set>
@@ -10,11 +10,11 @@
 #include <mutex>
 #include <queue>
 
-#include "core/network/MessageHandler.hpp"
-#include "core/network/IOMultiplexer.hpp"
-#include "core/types/MessageType.hpp"
-#include "core/types/Connection.hpp"
-#include "core/types/Command.hpp"
+#include "p2p_fss/network/MessageHandler.hpp"
+#include "p2p_fss/network/IOMultiplexer.hpp"
+#include "p2p_fss/types/MessageType.hpp"
+#include "p2p_fss/types/Connection.hpp"
+#include "p2p_fss/types/Command.hpp"
 
 class ConnectionManager
 {
@@ -55,5 +55,5 @@ protected:
   Connections               m_connections;
 };
 
-#endif // CORE_NETWORK_CONNECTION_MANAGER_HPP
+#endif // P2P_FSS_NETWORK_CONNECTION_MANAGER_HPP
 

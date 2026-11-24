@@ -1,5 +1,5 @@
-#ifndef CORE_TYPES_MESSAGE_TYPE_HPP
-#define CORE_TYPES_MESSAGE_TYPE_HPP
+#ifndef P2P_FSS_TYPES_MESSAGE_TYPE_HPP
+#define P2P_FSS_TYPES_MESSAGE_TYPE_HPP
 
 #include <cstdint>
 
@@ -19,5 +19,5 @@ enum class MessageType: std::uint8_t
   COUNT,
 };
 
-#endif // CORE_TYPES_MESSAGE_TYPE_HPP
+#endif // P2P_FSS_TYPES_MESSAGE_TYPE_HPP
 

@@ -1,5 +1,5 @@
-#ifndef CORE_TYPES_ENDPOINT_HPP
-#define CORE_TYPES_ENDPOINT_HPP
+#ifndef P2P_FSS_TYPES_ENDPOINT_HPP
+#define P2P_FSS_TYPES_ENDPOINT_HPP
 
 #include <netinet/in.h>
 #include <poll.h>
@@ -13,5 +13,5 @@ struct Endpoint
   unsigned int socket_address_information_length {};
 };
 
-#endif // CORE_TYPES_ENDPOINT_HPP
+#endif // P2P_FSS_TYPES_ENDPOINT_HPP
 

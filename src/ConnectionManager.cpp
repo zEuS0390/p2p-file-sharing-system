@@ -18,10 +18,10 @@
 #include <mutex>
 #include <queue>
 
-#include "core/network/ConnectionManager.hpp"
-#include "core/types/Connection.hpp"
-#include "core/types/MessageHeaders.hpp"
-#include "core/types/Command.hpp"
+#include "p2p_fss/network/ConnectionManager.hpp"
+#include "p2p_fss/types/Connection.hpp"
+#include "p2p_fss/types/MessageHeaders.hpp"
+#include "p2p_fss/types/Command.hpp"
 
 // Constructor
 ConnectionManager::ConnectionManager():

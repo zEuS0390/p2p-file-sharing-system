@@ -1,7 +1,7 @@
-#ifndef CORE_NETWORK_CLIENT_HPP
-#define CORE_NETWORK_CLIENT_HPP
+#ifndef P2P_FSS_NETWORK_CLIENT_HPP
+#define P2P_FSS_NETWORK_CLIENT_HPP
 
-#include "core/network/ConnectionManager.hpp"
+#include "p2p_fss/network/ConnectionManager.hpp"
 
 class Client: protected ConnectionManager
 {
@@ -14,4 +14,4 @@ private:
   void stopListening();
 };
 
-#endif // CORE_NETWORK_CONNECTION_MANAGER_HPP
+#endif // P2P_FSS_NETWORK_CLIENT_HPP

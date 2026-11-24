@@ -1,5 +1,5 @@
-#ifndef CORE_THREAD_POOL_HEADER
-#define CORE_THREAD_POOL_HEADER
+#ifndef P2P_FSS_THREAD_POOL_HEADER
+#define P2P_FSS_THREAD_POOL_HEADER
 
 #include <condition_variable>
 #include <type_traits>
@@ -39,4 +39,4 @@ private:
   bool m_stop;
 };
 
-#endif
+#endif // P2P_FSS_THREAD_POOL_HEADER

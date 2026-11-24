@@ -1,7 +1,7 @@
 #include <functional>
 #include <cstddef>
 
-#include "core/ThreadPool.hpp"
+#include "p2p_fss/ThreadPool.hpp"
 
 ThreadPool::ThreadPool(std::size_t n_threads):
   m_stop{false}

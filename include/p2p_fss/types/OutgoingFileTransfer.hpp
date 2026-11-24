@@ -1,5 +1,5 @@
-#ifndef CORE_TYPES_OUTGOING_FILE_TRANSFER_HPP
-#define CORE_TYPES_OUTGOING_FILE_TRANSFER_HPP
+#ifndef P2P_FSS_TYPES_OUTGOING_FILE_TRANSFER_HPP
+#define P2P_FSS_TYPES_OUTGOING_FILE_TRANSFER_HPP
 
 #include <cstdint>
 #include <fstream>
@@ -12,5 +12,5 @@ struct OutgoingFileTransfer
   std::uint64_t bytes_sent {};
 };
 
-#endif // CORE_TYPES_OUTGOING_FILE_TRANSFER_HPP
+#endif // P2P_FSS_TYPES_OUTGOING_FILE_TRANSFER_HPP
 

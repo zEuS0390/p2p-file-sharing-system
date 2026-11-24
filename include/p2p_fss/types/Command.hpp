@@ -1,13 +1,13 @@
-#ifndef CORE_TYPES_COMMAND_HPP
-#define CORE_TYPES_COMMAND_HPP
+#ifndef P2P_FSS_TYPES_COMMAND_HPP
+#define P2P_FSS_TYPES_COMMAND_HPP
 
 #include <unordered_set>
 #include <variant>
 #include <future>
 #include <vector>
 
-#include "core/types/MessageType.hpp"
-#include "core/types/Endpoint.hpp"
+#include "p2p_fss/types/MessageType.hpp"
+#include "p2p_fss/types/Endpoint.hpp"
 
 namespace Command
 {
@@ -43,5 +43,5 @@ namespace Command
   >;
 }
 
-#endif // CORE_TYPES_EVENT_COMMAND_HPP
+#endif // P2P_FSS_TYPES_EVENT_COMMAND_HPP
 

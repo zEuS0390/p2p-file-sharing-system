@@ -1,6 +1,6 @@
 #include "netdb.h"
 
-#include "core/network/Client.hpp"
+#include "p2p_fss/network/Client.hpp"
 
 Client::Client()
 {

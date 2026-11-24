@@ -1,5 +1,5 @@
-#ifndef CORE_TYPES_INCOMING_FILE_TRANSFER_HPP
-#define CORE_TYPES_INCOMING_FILE_TRANSFER_HPP
+#ifndef P2P_FSS_TYPES_INCOMING_FILE_TRANSFER_HPP
+#define P2P_FSS_TYPES_INCOMING_FILE_TRANSFER_HPP
 
 #include <cstdint>
 #include <fstream>
@@ -12,5 +12,5 @@ struct IncomingFileTransfer
   std::uint64_t bytes_received {0};
 };
 
-#endif // CORE_TYPES_INCOMING_FILE_TRANSFER_HPP
+#endif // P2P_FSS_TYPES_INCOMING_FILE_TRANSFER_HPP
 

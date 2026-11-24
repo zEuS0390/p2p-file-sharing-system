@@ -1,5 +1,5 @@
-#ifndef CORE_TYPES_CONNECTION_HPP
-#define CORE_TYPES_CONNECTION_HPP
+#ifndef P2P_FSS_TYPES_CONNECTION_HPP
+#define P2P_FSS_TYPES_CONNECTION_HPP
 
 #include <unordered_map>
 #include <cstdint>
@@ -7,10 +7,10 @@
 #include <poll.h>
 #include <atomic>
 
-#include "core/types/IncomingFileTransfer.hpp"
-#include "core/types/OutgoingFileTransfer.hpp"
-#include "core/types/MessageHeaders.hpp"
-#include "core/types/Endpoint.hpp"
+#include "p2p_fss/types/IncomingFileTransfer.hpp"
+#include "p2p_fss/types/OutgoingFileTransfer.hpp"
+#include "p2p_fss/types/MessageHeaders.hpp"
+#include "p2p_fss/types/Endpoint.hpp"
 
 /*
  * A structure for both server and client containing connection information.
@@ -30,5 +30,5 @@ struct Connection
   std::unordered_map<std::uint64_t, IncomingFileTransfer> incoming_files;
 };
 
-#endif // CORE_TYPES_CONNECTION_HPP
+#endif // P2P_FSS_TYPES_CONNECTION_HPP
 

@@ -10,9 +10,9 @@
 #include <atomic>
 #include <ios>
 
-#include "core/network/ConnectionManager.hpp"
-#include "core/types/MessageHeaders.hpp"
-#include "core/types/MessageType.hpp"
+#include "p2p_fss/network/ConnectionManager.hpp"
+#include "p2p_fss/types/MessageHeaders.hpp"
+#include "p2p_fss/types/MessageType.hpp"
 
 std::atomic<bool> is_running {true};
 std::atomic<int> socket_descriptor {-1};

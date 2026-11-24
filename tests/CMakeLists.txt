@@ -35,8 +35,8 @@ foreach(src IN LISTS CPP_SOURCES)
     "${CMAKE_BINARY_DIR}/tests"
   )
 
-  # Link the executable against the core library
-  target_link_libraries(${target_name} PRIVATE core)
+  # Link the executable against the p2p_fss library
+  target_link_libraries(${target_name} PRIVATE p2p_fss)
 
 endforeach()
 

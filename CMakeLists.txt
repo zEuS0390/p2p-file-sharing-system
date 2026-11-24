@@ -34,25 +34,24 @@ set(
 )
 
 add_library(
-  core
+  p2p_fss
   SHARED
   ${NETWORK_SRC_FILES}
 )
 
 target_include_directories(
-  core
+  p2p_fss
   PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
 set_target_properties(
-  core
+  p2p_fss
   PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY
   "${CMAKE_BINARY_DIR}/lib"
 )
 
-# add_subdirectory("${CMAKE_SOURCE_DIR}/lib/core")
 add_subdirectory("${CMAKE_SOURCE_DIR}/tests")
 add_subdirectory("${CMAKE_SOURCE_DIR}/gtests")
 

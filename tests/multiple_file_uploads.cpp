@@ -6,9 +6,9 @@
 #include <iomanip>
 #include <thread>
 
-#include "core/network/ConnectionManager.hpp"
-#include "core/types/MessageHeaders.hpp"
-#include "core/types/MessageType.hpp"
+#include "p2p_fss/network/ConnectionManager.hpp"
+#include "p2p_fss/types/MessageHeaders.hpp"
+#include "p2p_fss/types/MessageType.hpp"
 
 volatile sig_atomic_t shutdown_requested = 0;
 
