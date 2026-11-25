@@ -434,6 +434,16 @@ void ConnectionManager::stopEventLoop()
   m_io_multiplexer.writeFD(m_command_fd, &value, sizeof(value));
 }
 
+bool ConnectionManager::getEventLoopStatus() const
+{
+  return m_is_event_running.load();
+}
+
+void ConnectionManager::setEventLoopStatus(bool status)
+{
+  m_is_event_running.store(status);
+}
+
 int ConnectionManager::connect(const std::string &hostname, int port)
 {
   // Retrieve the server's network addresses.

@@ -21,7 +21,7 @@ int main(int argc, char* argv[])
 
   auto handle_signal = []([[maybe_unused]] int signal_number)
   {
-    server.m_is_event_running = 0;
+    server.setEventLoopStatus(false);
   };
 
   std::signal(SIGTERM, handle_signal);
@@ -32,6 +32,5 @@ int main(int argc, char* argv[])
   server.runEventLoop();
   server.stopListening();
   server.stopEventLoop();
-
 }
 

@@ -29,7 +29,6 @@ private:
   void parseIncomingMessage(Connection& connection);
 public:
   MessageHandler m_message_handler;
-  std::atomic<bool> m_is_event_running;
   ConnectionManager();
   ~ConnectionManager();
   void initListeners(std::uint16_t port);
@@ -37,6 +36,8 @@ public:
   void stopListening();
   void runEventLoop();
   void stopEventLoop();
+  bool getEventLoopStatus() const;
+  void setEventLoopStatus(bool status);
   int connect(const std::string& hostname, int port);
   int disconnect(int socket_descriptor);
   int send(
@@ -48,6 +49,7 @@ public:
 protected:
   IOMultiplexer             m_io_multiplexer;
   std::mutex                m_mutex;
+  std::atomic<bool>         m_is_event_running;
   std::atomic<bool>         m_is_listen_running;
   std::atomic<int>          m_command_fd;
   std::unordered_set<int>   m_listen_fds;
