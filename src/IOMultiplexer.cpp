@@ -44,7 +44,7 @@ void IOMultiplexer::readFD(int fd, const void *buffer, std::size_t buffer_size) 
 
 void IOMultiplexer::writeFD(int fd, const void *buffer, std::size_t buffer_size) const
 {
-  if (write(fd, &buffer, sizeof(buffer_size)) == -1)
+  if (write(fd, buffer, sizeof(buffer_size)) == -1)
   {
     if (errno != EAGAIN && errno != EWOULDBLOCK)
       std::cerr << "write command fd" << std::endl;
