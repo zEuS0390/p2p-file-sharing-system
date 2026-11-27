@@ -271,7 +271,7 @@ void ConnectionManager::runEventLoop()
         {
           if (fd == m_command_fd)
           {
-            uint64_t value {};
+            std::uint64_t value {};
             m_io_multiplexer.readFD(m_command_fd, &value, sizeof(value));
             processCommands();
             return;
@@ -444,7 +444,7 @@ void ConnectionManager::setEventLoopStatus(bool status)
   m_is_event_running.store(status);
 }
 
-int ConnectionManager::connect(const std::string &hostname, int port)
+int ConnectionManager::connect(const std::string &hostname, std::uint16_t port)
 {
   // Retrieve the server's network addresses.
   struct addrinfo* server_addresses = nullptr;

@@ -28,7 +28,6 @@ private:
   void processCommands();
   void parseIncomingMessage(Connection& connection);
 public:
-  MessageHandler m_message_handler;
   ConnectionManager();
   ~ConnectionManager();
   void initListeners(std::uint16_t port);
@@ -38,7 +37,7 @@ public:
   void stopEventLoop();
   bool getEventLoopStatus() const;
   void setEventLoopStatus(bool status);
-  int connect(const std::string& hostname, int port);
+  int connect(const std::string& hostname, std::uint16_t port);
   int disconnect(int socket_descriptor);
   int send(
     int socket_descriptor,
@@ -46,6 +45,8 @@ public:
     const char* data,
     std::size_t length
   );
+public:
+  MessageHandler m_message_handler;
 protected:
   IOMultiplexer             m_io_multiplexer;
   std::mutex                m_mutex;
